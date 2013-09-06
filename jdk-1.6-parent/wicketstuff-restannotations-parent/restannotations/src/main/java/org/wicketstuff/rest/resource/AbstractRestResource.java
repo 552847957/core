@@ -30,6 +30,7 @@ import org.apache.wicket.Session;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
 import org.apache.wicket.authroles.authorization.strategies.role.Roles;
+import org.apache.wicket.request.Response;
 import org.apache.wicket.request.Url;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
@@ -666,5 +667,28 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		{
 			return roleCheckingStrategy.hasAnyRole(roles);
 		}
+	}
+	
+	/**
+	 * Set the status code for the current response.
+	 * 
+	 * @param statusCode
+	 * 			the status code we want to set on the current response.
+	 */
+	protected final void setResponseStatusCode(int statusCode)
+	{
+		try 
+		{
+			Response request = RequestCycle.get().getResponse();
+			WebResponse webRequest = (WebResponse) request;
+			
+			webRequest.setStatus(statusCode);
+		} catch (Exception e) {
+			throw new IllegalStateException("Could not find a suitable WebResponse object for the current ThreadContext.", e);
+		}
+	}
+
+	protected Map<String, List<MethodMappingInfo>> getMappedMethods() {
+		return mappedMethods;
 	}
 }
