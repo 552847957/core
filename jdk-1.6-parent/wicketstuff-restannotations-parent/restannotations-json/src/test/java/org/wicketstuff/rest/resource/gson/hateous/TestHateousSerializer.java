@@ -16,22 +16,33 @@
  */
 package org.wicketstuff.rest.resource.gson.hateous;
 
-import java.util.List;
+import java.util.Arrays;
 
-public class HateousEntity {
-	private final Object targetEntity;
-	private final List links;
+import org.junit.Test;
+import org.wicketstuff.rest.Person;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+public class TestHateousSerializer
+{
+	private final Gson gson; 
 	
-	public HateousEntity(Object targetEntity, List links) {
-		this.targetEntity = targetEntity;
-		this.links = links;
+	public TestHateousSerializer()
+	{
+		GsonBuilder builder = new GsonBuilder();
+		builder.registerTypeAdapter(HateousEntity.class, new HateousSerializer());
+		
+		this.gson = builder.create();
 	}
 
-	public Object getTargetEntity() {
-		return targetEntity;
+	@Test
+	public void test()
+	{
+		Person person = new Person("Tim", "Jolly", "hero@gmail.com");
+		HateousEntity hateousEntity = new HateousEntity(person, Arrays.asList("one", "two", "three"));
+		
+		System.out.println(gson.toJson(hateousEntity));
 	}
 
-	public List getLinks() {
-		return links;
-	}
 }
