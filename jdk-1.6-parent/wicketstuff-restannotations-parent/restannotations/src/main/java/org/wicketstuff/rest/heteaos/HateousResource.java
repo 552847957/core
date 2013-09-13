@@ -14,12 +14,24 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.heteaos.annotations;
+package org.wicketstuff.rest.heteaos;
 
-import org.wicketstuff.rest.utils.http.HttpMethod;
+import java.util.List;
 
-public @interface EntityOperation {
-	Class<?> clazz();
-	HttpMethod httpMethod();
-	String fieldName() default "";
+public class HateousResource {
+	private final Object targetEntity;
+	private final List<HateousLink> links;
+	
+	public HateousResource(Object targetEntity, List<HateousLink> links) {
+		this.targetEntity = targetEntity;
+		this.links = links;
+	}
+
+	public Object getTargetEntity() {
+		return targetEntity;
+	}
+
+	public List<HateousLink> getLinks() {
+		return links;
+	}
 }

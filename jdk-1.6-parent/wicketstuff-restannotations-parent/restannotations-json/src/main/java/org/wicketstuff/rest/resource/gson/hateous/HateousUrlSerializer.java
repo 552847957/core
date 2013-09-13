@@ -18,27 +18,18 @@ package org.wicketstuff.rest.resource.gson.hateous;
 
 import java.lang.reflect.Type;
 
-import org.wicketstuff.rest.heteaos.HateousResource;
+import org.apache.wicket.request.Url;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
-public class HateousSerializer implements JsonSerializer<HateousResource> {
+public class HateousUrlSerializer implements JsonSerializer<Url> {
 
 	@Override
-	public JsonElement serialize(HateousResource entity, Type type, JsonSerializationContext ctx) {
-		JsonElement jsonElement = ctx.serialize(entity.getTargetEntity());
-		
-		if (jsonElement instanceof JsonObject)
-		{
-			JsonObject jsonObject = (JsonObject)jsonElement;
-			jsonObject.add("links", ctx.serialize(entity.getLinks()));
-			
-			jsonElement = jsonObject;
-		}
-		
-		return jsonElement;
+	public JsonElement serialize(Url url, Type type, JsonSerializationContext ctx) {
+		return new JsonPrimitive(url.toString());
 	}
+
 }

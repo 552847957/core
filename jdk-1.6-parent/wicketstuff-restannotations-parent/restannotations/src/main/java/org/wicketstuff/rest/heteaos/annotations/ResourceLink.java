@@ -14,31 +14,9 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.resource.gson.hateous;
+package org.wicketstuff.rest.heteaos.annotations;
 
-import java.lang.reflect.Type;
 
-import org.wicketstuff.rest.heteaos.HateousResource;
-
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-
-public class HateousSerializer implements JsonSerializer<HateousResource> {
-
-	@Override
-	public JsonElement serialize(HateousResource entity, Type type, JsonSerializationContext ctx) {
-		JsonElement jsonElement = ctx.serialize(entity.getTargetEntity());
-		
-		if (jsonElement instanceof JsonObject)
-		{
-			JsonObject jsonObject = (JsonObject)jsonElement;
-			jsonObject.add("links", ctx.serialize(entity.getLinks()));
-			
-			jsonElement = jsonObject;
-		}
-		
-		return jsonElement;
-	}
+public @interface ResourceLink {
+	String linkRel();
 }

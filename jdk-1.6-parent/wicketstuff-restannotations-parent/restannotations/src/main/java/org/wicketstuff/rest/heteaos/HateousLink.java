@@ -14,24 +14,30 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.resource.gson.hateous;
+package org.wicketstuff.rest.heteaos;
 
-import java.util.List;
+import org.apache.wicket.request.Url;
 
-public class HateousEntity {
-	private final Object targetEntity;
-	private final List links;
+public class HateousLink {
+	private final Url href;
+	private final String rel;
+	private final String type;
 	
-	public HateousEntity(Object targetEntity, List links) {
-		this.targetEntity = targetEntity;
-		this.links = links;
+	public HateousLink(Url href, String rel, String type) {
+		this.href = href;
+		this.rel = rel;;
+		this.type = type;
 	}
 
-	public Object getTargetEntity() {
-		return targetEntity;
+	public Url getHref() {
+		return href;
 	}
 
-	public List getLinks() {
-		return links;
+	public String getRel() {
+		return rel;
+	}
+
+	public String getType() {
+		return type;
 	}
 }

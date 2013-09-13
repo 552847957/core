@@ -14,12 +14,41 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.heteaos.annotations;
+package org.wicketstuff.rest;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
-@Retention(RetentionPolicy.RUNTIME)
-public @interface ClassHandler {
-	Class<?> value();
+public class Person{
+	private String name;
+	private String surname;
+	private String email;
+	
+	public Person(){}
+	
+	public Person(String name, String surname, String email) {
+		this.name = name;
+		this.surname = surname;
+		this.email = email;
+	}
+	
+	public String getName() {
+		return name;
+	}
+	public String getSurname() {
+		return surname;
+	}
+	public String getEmail() {
+		return email;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public void setSurname(String surname) {
+		this.surname = surname;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
 }
