@@ -16,30 +16,37 @@
  */
 package org.wicketstuff.rest.resource.gson.hateous;
 
-import java.nio.charset.Charset;
-import java.util.Arrays;
-
 import org.apache.wicket.request.Url;
-import org.junit.Test;
-import org.wicketstuff.rest.Person;
-import org.wicketstuff.rest.heteaos.HateousLink;
 import org.wicketstuff.rest.heteaos.HateousResource;
+import org.wicketstuff.rest.resource.gson.GsonSerialDeserial;
 
-public class TestHateousSerializer
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+
+public class GsonHateousSerialDeserial extends GsonSerialDeserial
 {
 
-	@Test
-	public void testHateousSerialization()
+	public GsonHateousSerialDeserial()
 	{
-		Person person = new Person("Tim", "Jolly", "hero@gmail.com");
-		HateousLink hateousLink = new HateousLink(new Url(Arrays.asList("one", "two", "three"),
-			Charset.forName("UTF-8")), "add", "text/html");
-		HateousResource hateousEntity = new HateousResource(person, Arrays.asList(hateousLink));
+		super();
+	}
 
-		GsonHateousSerialDeserial gsonHateousSerialDeserial = new GsonHateousSerialDeserial();
+	public GsonHateousSerialDeserial(Gson gson)
+	{
+		super(gson);
+	}
+	
+	@Override
+	protected Gson buildDefaultGson()
+	{
+		GsonBuilder builder = new GsonBuilder();
+		
+		builder.registerTypeAdapter(HateousResource.class, new HateousSerializer());
+		builder.registerTypeAdapter(Url.class, new HateousUrlSerializer());
+		
+		return builder.create();
 
-		System.out.println(gsonHateousSerialDeserial.serializeObject(hateousEntity,
-			GsonHateousSerialDeserial.CHARSET_UTF_8)); 
 	}
 
 }
