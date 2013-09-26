@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.wicket.request.Request;
 import org.apache.wicket.request.http.WebRequest;
 
 /**
@@ -49,6 +50,18 @@ public class HttpUtils {
 			builder.append(stringLine);
 		
 		return builder.toString();
+	}
+	
+	/**
+	 * Utility method to extract the HTTP request method.
+	 * 
+	 * @param request
+	 *            the current request object
+	 * @return the HTTP method used for this request
+	 * @see HttpMethod
+	 */
+	public static HttpMethod getHttpMethod(Request request) {
+		return getHttpMethod((WebRequest) request);
 	}
 	
 	/**
