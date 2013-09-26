@@ -40,6 +40,8 @@ import org.apache.wicket.request.resource.IResource;
 import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.annotations.parameters.CookieParam;
@@ -64,6 +66,8 @@ import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
  */
 public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource
 {
+	private static final Logger log = LoggerFactory.getLogger(AbstractRestResource.class);
+	
 	/** HashMap that stores every mapped method of the class */
 	private final Map<String, List<MethodMappingInfo>> mappedMethods;
 
@@ -389,31 +393,31 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 */
 	private Object invokeMappedMethod(MethodMappingInfo mappedMethod, Attributes attributes)
 	{
-
 		Method method = mappedMethod.getMethod();
 		List parametersValues = new ArrayList();
 
 		// Attributes objects
 		PageParameters pageParameters = attributes.getParameters();
 		WebResponse response = (WebResponse)attributes.getResponse();
-		HttpMethod httpMethod = HttpUtils.getHttpMethod((WebRequest)RequestCycle.get().getRequest());
+		HttpMethod httpMethod = HttpUtils.getHttpMethod(attributes.getRequest());
 
 		LinkedHashMap<String, String> pathParameters = mappedMethod.populatePathParameters(pageParameters);
 		Iterator<String> pathParamsIterator = pathParameters.values().iterator();
-		Class<?>[] parameterTypes = method.getParameterTypes();
+		Class<?>[] paramsTypes = method.getParameterTypes();
 
-		for (int i = 0; i < parameterTypes.length; i++)
+		for (int i = 0; i < paramsTypes.length; i++)
 		{
 			Object paramValue = null;
-			MethodParameter methodParameter = new MethodParameter(parameterTypes[i], mappedMethod,
-				i);
+			MethodParameter methodParameter = new MethodParameter(paramsTypes[i], mappedMethod, i);
 			Annotation annotation = ReflectionUtils.getAnnotationParam(i, method);
+			
 			// retrieve parameter value
 			if (annotation != null)
 				paramValue = extractParameterValue(methodParameter, pathParameters, annotation,
 					pageParameters);
 			else
 				paramValue = extractParameterFromUrl(methodParameter, pathParamsIterator);
+			
 			// try to use the default value
 			if (paramValue == null && !methodParameter.getDeaultValue().isEmpty())
 				paramValue = toObject(methodParameter.getParameterClass(),
@@ -592,7 +596,8 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		}
 		catch (Exception e)
 		{
-			throw new RuntimeException("Error deserializing object from request", e);
+			log.debug("Error deserializing object from request");
+			return null;
 		}
 	}
 
@@ -643,7 +648,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			WebResponse response = (WebResponse)RequestCycle.get().getResponse();
 
 			response.setStatus(400);
-			response.write("Could not find a suitable constructor for value '" + value +
+			log.debug("Could not find a suitable constructor for value '" + value +
 				"' of type '" + clazz + "'");
 
 			return null;
