@@ -21,12 +21,12 @@ import java.util.Map;
 
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
 import org.wicketstuff.rest.contenthandling.IWebSerialDeserial;
+import org.wicketstuff.rest.heteaos.HateousLink;
 import org.wicketstuff.rest.heteaos.IHateaosUriResolver;
 import org.wicketstuff.rest.resource.AbstractRestResource;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
-import org.wicketstuff.rest.utils.http.HttpMethod;
 
-public abstract class AbstractHateoasResource<T extends IWebSerialDeserial> extends
+public abstract class AbstractHateoasResource<T extends IWebSerialDeserial, R> extends
 		AbstractRestResource<T> {
 	private final IHateaosUriResolver uriResolver;
 
@@ -43,11 +43,9 @@ public abstract class AbstractHateoasResource<T extends IWebSerialDeserial> exte
 	}
 
 	private void loadHateaosLinks() {
-		Class<?> supportedClasses = getHandledEntityClass();
 		Map<String, List<MethodMappingInfo>> mappedMethods = getMappedMethods();
 		
-		List<MethodMappingInfo> candidatesMethos = mappedMethods.get("1_" + HttpMethod.DELETE);
 	}
 
-	protected abstract Class<?> getHandledEntityClass();
+	protected abstract List<HateousLink> getResourceLinks(R resource);
 }
