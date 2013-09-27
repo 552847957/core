@@ -433,6 +433,22 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			parametersValues.add(paramValue);
 		}
 
+		return executeResourceMethod(method, parametersValues, response);
+	}
+	
+	/**
+	 * Execute a method implemented in the current resource class
+	 * 
+	 * @param method
+	 * 		the method that must be executed.
+	 * @param parametersValues
+	 * 		method parameters
+	 * @param response
+	 * 		the current WebResponse object.
+	 * @return
+	 * 		the value (if any) returned by the method.
+	 */
+	private Object executeResourceMethod(Method method, List parametersValues, WebResponse response) {
 		try
 		{
 			return method.invoke(this, parametersValues.toArray());
@@ -440,8 +456,10 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		catch (Exception e)
 		{
 			response.sendError(500, "General server error.");
-			throw new RuntimeException("Error invoking method '" + method.getName() + "'", e);
+			log.debug("Error invoking method '" + method.getName() + "'");
 		}
+		
+		return null;
 	}
 
 	/**
