@@ -20,6 +20,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,7 @@ import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
 import org.apache.wicket.validation.IValidationError;
+import org.apache.wicket.validation.IValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
@@ -76,7 +78,12 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 * the number of the segments of their URL and their HTTP method (see annotation MethodMapping)
 	 */
 	private final Map<String, List<MethodMappingInfo>> mappedMethods;
-
+	
+	/**
+	 * 
+	 */
+	private final Map<String, IValidator> declaredValidators = new HashMap<String, IValidator>();
+	
 	/**
 	 * The implementation of {@link IWebSerialDeserial} that is used to serialize/desiarilze objects
 	 * to/from string (for example to/from JSON)
@@ -156,7 +163,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			}
 
 			// 4-validate method parameters
-			// validateMethodParameters(parametersValues);
+			validateMethodParameters(mappedMethod, parametersValues);
 
 			// 5-invoke method triggering the before-after hooks
 			onBeforeMethodInvoked(mappedMethod, attributes);
@@ -175,22 +182,27 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		}
 	}
 
+	private boolean isUserAuthorized(MethodMappingInfo mappedMethod)
+	{
+		if (!hasAny(mappedMethod.getRoles()))
+		{
+			return false;
+		}
+		
+		return true;
+	}
+	
 	protected void noSuitableMethodFound(WebResponse response, HttpMethod httpMethod)
 	{
 		response.sendError(400, "No suitable method found for URL '" + extractUrlFromRequest() +
 			"' and HTTP method " + httpMethod);
 	}
 
-	private final boolean isUserAuthorized(MethodMappingInfo mappedMethod)
-	{
-		if (!hasAny(mappedMethod.getRoles()))
-		{
-			return false;
-		}
-
-		return true;
+	
+	private void validateMethodParameters(MethodMappingInfo mappedMethod, List parametersValues){
+		
 	}
-
+	
 	/**
 	 * Invoked just before a mapped method is invoked to serve the current request.
 	 * 
@@ -761,6 +773,18 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	protected Map<String, List<MethodMappingInfo>> getMappedMethods()
 	{
 		return mappedMethods;
+	}
+	
+	protected void registerValidator(String key, IValidator validator){
+		declaredValidators.put(key, validator);
+	}
+	
+	protected void unregisterValidator(String key){
+		declaredValidators.remove(key);
+	}
+	
+	protected IValidator getValidator(String key){
+		return declaredValidators.get(key);
 	}
 }
 
