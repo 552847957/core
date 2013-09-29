@@ -21,10 +21,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.apache.wicket.validation.IValidator;
-
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
 public @interface ParamValidator {
-	Class<? extends IValidator> validator(); 
+	String validatorKey(); 
 }

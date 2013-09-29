@@ -89,10 +89,10 @@ public class RestResourceFullAnnotated extends AbstractRestResource<TestJsonDesS
 		return person;
 	}
 
-	@MethodMapping(value = "/admin", httpMethod = HttpMethod.GET)
+	@MethodMapping(value = "/admin", produces = RestMimeTypes.TEXT_PLAIN)
 	@AuthorizeInvocation("ROLE_ADMIN")
-	public void testMethodAdminAuth() {
-
+	public String testMethodAdminAuth() {
+		return "testMethodAdminAuth";
 	}
 
 	@MethodMapping(value = "/products/{id}", produces = RestMimeTypes.TEXT_PLAIN)

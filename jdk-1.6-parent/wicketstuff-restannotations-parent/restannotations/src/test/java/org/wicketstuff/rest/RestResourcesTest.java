@@ -138,15 +138,19 @@ public class RestResourcesTest {
 
 	@Test
 	public void rolesAuthorizationMethod() {
-		roles.add("ROLE_ADMIN");
-		tester.getRequest().setMethod("GET");
-		tester.executeUrl("./api/admin");
-		Assert.assertEquals(200, tester.getLastResponse().getStatus());
 		// without roles must get a 401 HTTP code (user unauthorized)
 		roles.clear();
 		tester.getRequest().setMethod("GET");
 		tester.executeUrl("./api/admin");
 		Assert.assertEquals(401, tester.getLastResponse().getStatus());
+		testIfResponseStringIsEqual("");
+		
+		//add the role to pass the test
+		roles.add("ROLE_ADMIN");
+		tester.getRequest().setMethod("GET");
+		tester.executeUrl("./api/admin");
+		Assert.assertEquals(200, tester.getLastResponse().getStatus());
+		testIfResponseStringIsEqual("testMethodAdminAuth");
 	}
 
 	@Test

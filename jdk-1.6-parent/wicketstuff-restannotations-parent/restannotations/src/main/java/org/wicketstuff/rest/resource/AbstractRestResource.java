@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.wicket.Application;
+import org.apache.wicket.Localizer;
 import org.apache.wicket.Session;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
@@ -37,9 +38,11 @@ import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.IResource;
+import org.apache.wicket.request.resource.IResource.Attributes;
 import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
+import org.apache.wicket.validation.IValidationError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
@@ -67,8 +70,11 @@ import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
 public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource
 {
 	private static final Logger log = LoggerFactory.getLogger(AbstractRestResource.class);
-	
-	/** HashMap that stores every mapped method of the class */
+
+	/**
+	 * HashMap that stores every mapped method of the class. Mapped method are stored concatenating
+	 * the number of the segments of their URL and their HTTP method (see annotation MethodMapping)
+	 */
 	private final Map<String, List<MethodMappingInfo>> mappedMethods;
 
 	/**
@@ -122,32 +128,42 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	@Override
 	public final void respond(Attributes attributes)
 	{
-		PageParameters pageParameters = attributes.getParameters();
-		WebResponse response = (WebResponse)attributes.getResponse();
-		HttpMethod httpMethod = HttpUtils.getHttpMethod((WebRequest)RequestCycle.get().getRequest());
-		int indexedParamCount = pageParameters.getIndexedCount();
+		AttributesWrapper attributesWrapper = new AttributesWrapper(attributes);
 
-		// mapped method are stored concatenating the number of the segments of
-		// their URL and their HTTP method (see annotation MethodMapping)
-		List<MethodMappingInfo> mappedMethodsCandidates = mappedMethods.get(indexedParamCount +
-			"_" + httpMethod.getMethod());
+		PageParameters pageParameters = attributesWrapper.getPageParameters();
+		WebResponse response = attributesWrapper.getWebResponse();
+		HttpMethod httpMethod = attributesWrapper.getHttpMethod();
 
-		MethodMappingInfo mappedMethod = selectMostSuitedMethod(mappedMethodsCandidates,
-			pageParameters);
+		// 1-select the best "candidate" method to serve the request
+		MethodMappingInfo mappedMethod = selectMostSuitedMethod(attributesWrapper);
 
 		if (mappedMethod != null)
 		{
-			if (!hasAny(mappedMethod.getRoles()))
+			// 2-check if user is authorized to invoke the method
+			if (!isUserAuthorized(mappedMethod))
 			{
-				response.sendError(401, "User is not allowed to invoke method on server.");
+				response.sendError(401, "User is not allowed to use this resource.");
 				return;
 			}
 
+			// 3-extract method parameters
+			List parametersValues = extractMethodParameters(mappedMethod, attributesWrapper);
+
+			if (parametersValues == null)
+			{
+				noSuitableMethodFound(response, httpMethod);
+				return;
+			}
+
+			// 4-validate method parameters
+			// validateMethodParameters(parametersValues);
+
+			// 5-invoke method triggering the before-after hooks
 			onBeforeMethodInvoked(mappedMethod, attributes);
-			Object result = invokeMappedMethod(mappedMethod, attributes);
+			Object result = invokeMappedMethod(mappedMethod.getMethod(), parametersValues, response);
 			onAfterMethodInvoked(mappedMethod, attributes, result);
 
-			// if the invoked method returns a value, it is written to response
+			// 6-if the invoked method returns a value, it is written to response
 			if (result != null)
 			{
 				serializeObjectToResponse(response, result, mappedMethod.getMimeOutputFormat());
@@ -155,9 +171,24 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		}
 		else
 		{
-			response.sendError(400, "No suitable method found for URL '" + extractUrlFromRequest() +
-				"' and HTTP method " + httpMethod);
+			noSuitableMethodFound(response, httpMethod);
 		}
+	}
+
+	protected void noSuitableMethodFound(WebResponse response, HttpMethod httpMethod)
+	{
+		response.sendError(400, "No suitable method found for URL '" + extractUrlFromRequest() +
+			"' and HTTP method " + httpMethod);
+	}
+
+	private final boolean isUserAuthorized(MethodMappingInfo mappedMethod)
+	{
+		if (!hasAny(mappedMethod.getRoles()))
+		{
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -219,21 +250,25 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 *            The PageParameters of the current request.
 	 * @return The "best" method found to serve the request.
 	 */
-	private MethodMappingInfo selectMostSuitedMethod(List<MethodMappingInfo> mappedMethods,
-		PageParameters pageParameters)
+	private MethodMappingInfo selectMostSuitedMethod(AttributesWrapper attributesWrapper)
 	{
-		int highestScore = 0;
+		int indexedParamCount = attributesWrapper.getPageParameters().getIndexedCount();
+		PageParameters pageParameters = attributesWrapper.getPageParameters();
+		List<MethodMappingInfo> mappedMethodsCandidates = mappedMethods.get(indexedParamCount +
+			"_" + attributesWrapper.getHttpMethod());
+
 		MultiMap<Integer, MethodMappingInfo> mappedMethodByScore = new MultiMap<Integer, MethodMappingInfo>();
+		int highestScore = 0;
 
 		// no method mapped
-		if (mappedMethods == null || mappedMethods.size() == 0)
+		if (mappedMethodsCandidates == null || mappedMethodsCandidates.size() == 0)
 			return null;
 
 		/**
 		 * To select the "best" method, a score is assigned to every mapped method. To calculate the
 		 * score method calculateScore is executed for every segment.
 		 */
-		for (MethodMappingInfo mappedMethod : mappedMethods)
+		for (MethodMappingInfo mappedMethod : mappedMethodsCandidates)
 		{
 			List<AbstractURLSegment> segments = mappedMethod.getSegments();
 			int score = 0;
@@ -242,8 +277,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			{
 				int i = segments.indexOf(segment);
 				String currentActualSegment = AbstractURLSegment.getActualSegment(pageParameters.get(
-					i)
-					.toString());
+					i).toString());
 
 				int partialScore = segment.calculateScore(currentActualSegment);
 
@@ -329,16 +363,16 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			if (methodMapped != null)
 			{
 				HttpMethod httpMethod = methodMapped.httpMethod();
-				MethodMappingInfo urlMappingInfo = new MethodMappingInfo(methodMapped, method);
+				MethodMappingInfo methodMappingInfo = new MethodMappingInfo(methodMapped, method);
 
-				if (!isMimeTypesSupported(urlMappingInfo.getMimeInputFormat()) ||
-					!isMimeTypesSupported(urlMappingInfo.getMimeOutputFormat()))
+				if (!isMimeTypesSupported(methodMappingInfo.getMimeInputFormat()) ||
+					!isMimeTypesSupported(methodMappingInfo.getMimeOutputFormat()))
 					throw new WicketRuntimeException(
 						"Mapped methods use a MIME type not supported by obj serializer/deserializer!");
 
 				mappedMethods.addValue(
-					urlMappingInfo.getSegmentsCount() + "_" + httpMethod.getMethod(),
-					urlMappingInfo);
+					methodMappingInfo.getSegmentsCount() + "_" + httpMethod.getMethod(),
+					methodMappingInfo);
 			}
 		}
 		// if AuthorizeInvocation has been found but no role-checker has been
@@ -349,21 +383,21 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 
 		return makeListMapImmutable(mappedMethods);
 	}
-	
+
 	/**
 	 * Make a list map immutable.
 	 * 
-	 * @param listMap the list map in input.
+	 * @param listMap
+	 *            the list map in input.
 	 * @return the immutable list map.
 	 */
-	private <T,E> Map<T, List<E>> makeListMapImmutable(
-		Map<T, List<E>> listMap)
+	private <T, E> Map<T, List<E>> makeListMapImmutable(Map<T, List<E>> listMap)
 	{
 		for (T key : listMap.keySet())
 		{
 			listMap.put(key, Collections.unmodifiableList(listMap.get(key)));
 		}
-		
+
 		return Collections.unmodifiableMap(listMap);
 	}
 
@@ -391,15 +425,13 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 *            Attributes object for the current request.
 	 * @return the value returned by the invoked method
 	 */
-	private Object invokeMappedMethod(MethodMappingInfo mappedMethod, Attributes attributes)
+	private List extractMethodParameters(MethodMappingInfo mappedMethod,
+		AttributesWrapper attributesWrapper)
 	{
 		Method method = mappedMethod.getMethod();
 		List parametersValues = new ArrayList();
 
-		// Attributes objects
-		PageParameters pageParameters = attributes.getParameters();
-		WebResponse response = (WebResponse)attributes.getResponse();
-		HttpMethod httpMethod = HttpUtils.getHttpMethod(attributes.getRequest());
+		PageParameters pageParameters = attributesWrapper.getPageParameters();
 
 		LinkedHashMap<String, String> pathParameters = mappedMethod.populatePathParameters(pageParameters);
 		Iterator<String> pathParamsIterator = pathParameters.values().iterator();
@@ -410,45 +442,44 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			Object paramValue = null;
 			MethodParameter methodParameter = new MethodParameter(paramsTypes[i], mappedMethod, i);
 			Annotation annotation = ReflectionUtils.getAnnotationParam(i, method);
-			
+
 			// retrieve parameter value
 			if (annotation != null)
 				paramValue = extractParameterValue(methodParameter, pathParameters, annotation,
 					pageParameters);
 			else
 				paramValue = extractParameterFromUrl(methodParameter, pathParamsIterator);
-			
+
 			// try to use the default value
 			if (paramValue == null && !methodParameter.getDeaultValue().isEmpty())
 				paramValue = toObject(methodParameter.getParameterClass(),
 					methodParameter.getDeaultValue());
 
+			// if parameter is null and is required, abort extraction.
 			if (paramValue == null && methodParameter.isRequired())
 			{
-				response.sendError(400, "No suitable method found for URL '" +
-					extractUrlFromRequest() + "' and HTTP method " + httpMethod);
 				return null;
 			}
 
 			parametersValues.add(paramValue);
 		}
 
-		return executeResourceMethod(method, parametersValues, response);
+		return parametersValues;
 	}
-	
+
 	/**
 	 * Execute a method implemented in the current resource class
 	 * 
 	 * @param method
-	 * 		the method that must be executed.
+	 *            the method that must be executed.
 	 * @param parametersValues
-	 * 		method parameters
+	 *            method parameters
 	 * @param response
-	 * 		the current WebResponse object.
-	 * @return
-	 * 		the value (if any) returned by the method.
+	 *            the current WebResponse object.
+	 * @return the value (if any) returned by the method.
 	 */
-	private Object executeResourceMethod(Method method, List parametersValues, WebResponse response) {
+	private Object invokeMappedMethod(Method method, List parametersValues, WebResponse response)
+	{
 		try
 		{
 			return method.invoke(this, parametersValues.toArray());
@@ -458,7 +489,13 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			response.sendError(500, "General server error.");
 			log.debug("Error invoking method '" + method.getName() + "'");
 		}
-		
+
+		return null;
+	}
+
+	private Object resolveErrorMessage(List<IValidationError> errors)
+	{
+		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
 		return null;
 	}
 
@@ -666,8 +703,8 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			WebResponse response = (WebResponse)RequestCycle.get().getResponse();
 
 			response.setStatus(400);
-			log.debug("Could not find a suitable constructor for value '" + value +
-				"' of type '" + clazz + "'");
+			log.debug("Could not find a suitable constructor for value '" + value + "' of type '" +
+				clazz + "'");
 
 			return null;
 		}
@@ -691,27 +728,83 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			return roleCheckingStrategy.hasAnyRole(roles);
 		}
 	}
-	
+
 	/**
 	 * Set the status code for the current response.
 	 * 
 	 * @param statusCode
-	 * 			the status code we want to set on the current response.
+	 *            the status code we want to set on the current response.
 	 */
 	protected final void setResponseStatusCode(int statusCode)
 	{
-		try 
+		try
 		{
 			Response request = RequestCycle.get().getResponse();
-			WebResponse webRequest = (WebResponse) request;
-			
+			WebResponse webRequest = (WebResponse)request;
+
 			webRequest.setStatus(statusCode);
-		} catch (Exception e) {
-			throw new IllegalStateException("Could not find a suitable WebResponse object for the current ThreadContext.", e);
+		}
+		catch (Exception e)
+		{
+			throw new IllegalStateException(
+				"Could not find a suitable WebResponse object for the current ThreadContext.", e);
 		}
 	}
 
-	protected Map<String, List<MethodMappingInfo>> getMappedMethods() {
+	/**
+	 * Return mapped methods grouped by number of segments and HTTP method. So for example, to get
+	 * all methods mapped on a path with three segments and with GET method, the key to use will be
+	 * "3_GET" (underscore-separated)
+	 * 
+	 * @return the immutable map containing mapped methods.
+	 */
+	protected Map<String, List<MethodMappingInfo>> getMappedMethods()
+	{
 		return mappedMethods;
+	}
+}
+
+/**
+ * Utility class to extract and handle the information from class IResource.Attributes
+ * 
+ * @author andrea del bene
+ *
+ */
+class AttributesWrapper
+{
+	private final WebResponse webResponse;
+
+	private final WebRequest webRequest;
+
+	private final PageParameters pageParameters;
+
+	private final HttpMethod httpMethod;
+
+	public AttributesWrapper(Attributes attributes)
+	{
+		this.webRequest = (WebRequest)attributes.getRequest();
+		this.webResponse = (WebResponse)attributes.getResponse();
+		this.pageParameters = attributes.getParameters();
+		this.httpMethod = HttpUtils.getHttpMethod(attributes.getRequest());
+	}
+
+	public WebResponse getWebResponse()
+	{
+		return webResponse;
+	}
+
+	public WebRequest getWebRequest()
+	{
+		return webRequest;
+	}
+
+	public PageParameters getPageParameters()
+	{
+		return pageParameters;
+	}
+
+	public HttpMethod getHttpMethod()
+	{
+		return httpMethod;
 	}
 }

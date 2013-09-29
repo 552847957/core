@@ -17,14 +17,12 @@
 package org.wicketstuff.rest.heteaos.resource;
 
 import java.util.List;
-import java.util.Map;
 
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
 import org.wicketstuff.rest.contenthandling.IWebSerialDeserial;
 import org.wicketstuff.rest.heteaos.HateousLink;
 import org.wicketstuff.rest.heteaos.IHateaosUriResolver;
 import org.wicketstuff.rest.resource.AbstractRestResource;
-import org.wicketstuff.rest.resource.MethodMappingInfo;
 
 public abstract class AbstractHateoasResource<T extends IWebSerialDeserial, R> extends
 		AbstractRestResource<T> {
@@ -43,7 +41,6 @@ public abstract class AbstractHateoasResource<T extends IWebSerialDeserial, R> e
 	}
 
 	private void loadHateaosLinks() {
-		Map<String, List<MethodMappingInfo>> mappedMethods = getMappedMethods();
 		
 	}
 

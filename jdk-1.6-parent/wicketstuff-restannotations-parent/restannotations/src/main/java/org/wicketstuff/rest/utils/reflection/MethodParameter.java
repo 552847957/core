@@ -17,14 +17,8 @@
 package org.wicketstuff.rest.utils.reflection;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.util.List;
 
 import org.apache.wicket.util.lang.Args;
-import org.apache.wicket.validation.IValidationError;
-import org.apache.wicket.validation.IValidator;
-import org.apache.wicket.validation.Validatable;
-import org.wicketstuff.rest.annotations.parameters.ParamValidator;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 
 // TODO: Auto-generated Javadoc
@@ -50,9 +44,6 @@ public class MethodParameter<T> {
 	
 	/** Default value of the method parameter. */
 	final private String deaultValue;
-	
-	/** Parameter validator*/
-	final private IValidator<T> validator;
 
 	/**
 	 * Instantiates a new method parameter.
@@ -72,25 +63,9 @@ public class MethodParameter<T> {
 		this.parameterClass = type;
 		this.ownerMethod = ownerMethod;
 		this.paramIndex = paramIndex;
-		this.validator = loadParamValidator(ownerMethod, paramIndex);
 		
 		this.required = loadParamAnnotationField("required", true);
 		this.deaultValue = loadParamAnnotationField("defaultValue", "");
-	}
-
-	private IValidator loadParamValidator(MethodMappingInfo ownerMethod, int paramIndex) {
-		Method method = ownerMethod.getMethod();
-		Annotation[] parameterAnnotations = method.getParameterAnnotations()[paramIndex];
-		ParamValidator paramValidator = ReflectionUtils.findAnnotation(parameterAnnotations, ParamValidator.class);
-		
-		try {
-			if(paramValidator != null)
-				return paramValidator.validator().newInstance();
-		} catch (Exception e) {
-			throw new RuntimeException("Error instantiating the validator.", e);
-		}
-		
-		return null;
 	}
 
 	/**
@@ -109,13 +84,6 @@ public class MethodParameter<T> {
 			methodResult = ReflectionUtils.invokeMethod(annotation, fieldName);
 		
 		return methodResult != null ? methodResult : defaultValue;
-	}
-	
-	public List<IValidationError> validate(T value){
-		Validatable<T> validable = new Validatable<T>(value);
-		validator.validate(validable);
-		
-		return validable.getErrors();
 	}
 	
 	/**
