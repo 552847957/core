@@ -154,6 +154,22 @@ public class RestResourcesTest {
 	}
 
 	@Test
+	public void testValidator() {
+		tester.getRequest().setMethod("GET");
+		tester.getRequest().setParameter("email", "noMailValue");
+		tester.executeUrl("./api/emailvalidator");
+		testIfResponseStringIsEqual("");
+		
+		String email = "avalid@mail.com";
+		
+		tester.getRequest().setMethod("GET");
+		tester.getRequest().setParameter("email", email);
+		tester.executeUrl("./api/emailvalidator");
+		testIfResponseStringIsEqual(email);
+	
+	}
+	
+	@Test
 	public void testRoleCheckinRequired() {
 		// RestResourceFullAnnotated uses annotation AuthorizeInvocation
 		// hence it needs a roleCheckingStrategy to be built

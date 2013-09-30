@@ -25,12 +25,14 @@ import junit.framework.Assert;
 
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
 import org.apache.wicket.util.lang.Args;
+import org.apache.wicket.validation.validator.EmailAddressValidator;
 import org.wicketstuff.rest.Person;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.annotations.parameters.CookieParam;
 import org.wicketstuff.rest.annotations.parameters.HeaderParam;
 import org.wicketstuff.rest.annotations.parameters.MatrixParam;
+import org.wicketstuff.rest.annotations.parameters.ParamValidator;
 import org.wicketstuff.rest.annotations.parameters.PathParam;
 import org.wicketstuff.rest.annotations.parameters.RequestBody;
 import org.wicketstuff.rest.annotations.parameters.RequestParam;
@@ -46,6 +48,14 @@ public class RestResourceFullAnnotated extends AbstractRestResource<TestJsonDesS
 
 	public RestResourceFullAnnotated(TestJsonDesSer jsonSerialDeserial) {
 		super(jsonSerialDeserial);
+	}
+	
+	@Override
+	protected void configureObjSerialDeserial(TestJsonDesSer objSerialDeserial)
+	{
+		EmailAddressValidator emailValidator = EmailAddressValidator.getInstance();
+		
+		registerValidator("emailvalidator", emailValidator);
 	}
 
 	/**
@@ -152,6 +162,11 @@ public class RestResourceFullAnnotated extends AbstractRestResource<TestJsonDesS
 		Args.notNull(intParam, "intParam");
 		
 		return "testParamOutOfOrder";
+	}
+	
+	@MethodMapping(value = "/emailvalidator", produces = RestMimeTypes.TEXT_PLAIN)
+	public String testEmailValidator(@RequestParam("email") @ParamValidator(validatorKey = "emailvalidator") String email) {
+		return email;
 	}
 	
 	@MethodMapping(value = "/testreqdef", produces = RestMimeTypes.TEXT_PLAIN)
