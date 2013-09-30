@@ -43,8 +43,11 @@ import org.apache.wicket.request.resource.IResource.Attributes;
 import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
+import org.apache.wicket.util.string.Strings;
+import org.apache.wicket.validation.IErrorMessageSource;
 import org.apache.wicket.validation.IValidationError;
 import org.apache.wicket.validation.IValidator;
+import org.apache.wicket.validation.Validatable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
@@ -69,7 +72,7 @@ import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
  * @author andrea del bene
  * 
  */
-public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource
+public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource, IErrorMessageSource
 {
 	private static final Logger log = LoggerFactory.getLogger(AbstractRestResource.class);
 
@@ -163,8 +166,13 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			}
 
 			// 4-validate method parameters
-			validateMethodParameters(mappedMethod, parametersValues);
+			List<IValidationError> validationErrors = validateMethodParameters(mappedMethod, parametersValues);
 
+			if(validationErrors.size() > 0)
+			{
+				return;
+			}
+			
 			// 5-invoke method triggering the before-after hooks
 			onBeforeMethodInvoked(mappedMethod, attributes);
 			Object result = invokeMappedMethod(mappedMethod.getMethod(), parametersValues, response);
@@ -198,9 +206,43 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			"' and HTTP method " + httpMethod);
 	}
 
-	
-	private void validateMethodParameters(MethodMappingInfo mappedMethod, List parametersValues){
+	private List<IValidationError> validateMethodParameters(MethodMappingInfo mappedMethod, List parametersValues)
+	{
+		List<MethodParameter> methodParameters = mappedMethod.getMethodParameters();
+		List<IValidationError> errors = new ArrayList<IValidationError>();
 		
+		for (MethodParameter methodParameter : methodParameters) 
+		{
+			int i = methodParameters.indexOf(methodParameter);
+			
+			String validatorKey = methodParameter.getValdatorKey();			
+			IValidator validator = getValidator(validatorKey);
+			Validatable validatable = new Validatable(parametersValues.get(i));
+			
+			if(validator != null)
+			{
+				validator.validate(validatable);
+				errors.addAll(validatable.getErrors());
+			}
+			else if(Strings.isEmpty(validatorKey))
+			{
+				log.debug("No validator found for key '" + validatorKey + "'");
+			}
+		}
+		
+		return errors;
+	}
+	
+	private String resolveErrorMessage(List<IValidationError> errors)
+	{
+		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
+		return null;
+	}
+	
+	@Override
+	public String getMessage(String key, Map<String, Object> vars) 
+	{
+		return null;
 	}
 	
 	/**
@@ -442,18 +484,15 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	{
 		Method method = mappedMethod.getMethod();
 		List parametersValues = new ArrayList();
-
 		PageParameters pageParameters = attributesWrapper.getPageParameters();
-
 		LinkedHashMap<String, String> pathParameters = mappedMethod.populatePathParameters(pageParameters);
 		Iterator<String> pathParamsIterator = pathParameters.values().iterator();
-		Class<?>[] paramsTypes = method.getParameterTypes();
-
-		for (int i = 0; i < paramsTypes.length; i++)
+		List<MethodParameter> methodParameters = mappedMethod.getMethodParameters();
+		
+		for (MethodParameter methodParameter : methodParameters)
 		{
 			Object paramValue = null;
-			MethodParameter methodParameter = new MethodParameter(paramsTypes[i], mappedMethod, i);
-			Annotation annotation = ReflectionUtils.getAnnotationParam(i, method);
+			Annotation annotation = ReflectionUtils.getAnnotationParam(methodParameters.indexOf(methodParameter), method);
 
 			// retrieve parameter value
 			if (annotation != null)
@@ -502,12 +541,6 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			log.debug("Error invoking method '" + method.getName() + "'");
 		}
 
-		return null;
-	}
-
-	private Object resolveErrorMessage(List<IValidationError> errors)
-	{
-		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
 		return null;
 	}
 

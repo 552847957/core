@@ -33,21 +33,21 @@ public class MethodParameter<T>
 {
 
 	/** The parameter class. */
-	final private Class<T> parameterClass;
+	private final Class<T> parameterClass;
 
 	/** The owner method. */
-	final private MethodMappingInfo ownerMethod;
+	private final MethodMappingInfo ownerMethod;
 
 	/** The param index. */
-	final private int paramIndex;
+	private final int paramIndex;
 
 	/** Indicates if the parameter is required or not. */
-	final private boolean required;
+	private final boolean required;
 
 	/** Default value of the method parameter. */
-	final private String deaultValue;
+	private final String deaultValue;
 
-	final private String valdatorKey;
+	private final String valdatorKey;
 
 	/**
 	 * Instantiates a new method parameter.

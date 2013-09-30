@@ -26,9 +26,9 @@ import org.apache.wicket.authroles.authorization.strategies.role.Roles;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.wicketstuff.rest.annotations.AuthorizeInvocation;
 import org.wicketstuff.rest.annotations.MethodMapping;
-import org.wicketstuff.rest.contenthandling.RestMimeTypes;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
 import org.wicketstuff.rest.utils.http.HttpMethod;
+import org.wicketstuff.rest.utils.reflection.MethodParameter;
 
 // TODO: Auto-generated Javadoc
 /**
@@ -43,8 +43,7 @@ public class MethodMappingInfo {
 	/** The HTTP method used to invoke this mapped method. */
 	private final HttpMethod httpMethod;
 	/** Segments that compose the URL we mapped the method on. */
-	private final List<AbstractURLSegment> segments;
-	
+	private final List<AbstractURLSegment> segments;	
 	/** Optional roles we used to annotate the method (see. {@link AuthorizeInvocation}). */
 	private final Roles roles;
 	/** The resource method we have mapped. */
@@ -53,7 +52,9 @@ public class MethodMappingInfo {
 	private final String inputFormat;
 	/** The MIME type to use in output. */
 	private final String outputFormat;
-
+	/** Method parameters list */
+	private final List<MethodParameter> methodParameters;
+	
 	/**
 	 * Class constructor.
 	 *
@@ -68,7 +69,19 @@ public class MethodMappingInfo {
 
 		this.inputFormat = methodMapped.consumes();
 		this.outputFormat = methodMapped.produces();
+		this.methodParameters = loadMethodParameters(method);
+	}
 
+	private List<MethodParameter> loadMethodParameters(Method method) {
+		Class<?>[] paramsTypes = method.getParameterTypes();
+		List<MethodParameter> methodParameters = new ArrayList<MethodParameter>();
+		
+		for (int i = 0; i < paramsTypes.length; i++)
+		{
+			methodParameters.add(new MethodParameter(paramsTypes[i], this, i));
+		}
+		
+		return Collections.unmodifiableList(methodParameters);
 	}
 
 	/**
@@ -199,5 +212,9 @@ public class MethodMappingInfo {
 	 */
 	public String getMimeOutputFormat() {
 		return outputFormat;
+	}
+
+	public List<MethodParameter> getMethodParameters() {
+		return methodParameters;
 	}
 }
