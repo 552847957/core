@@ -19,7 +19,7 @@ package org.wicketstuff.rest.utils.reflection;
 import java.lang.annotation.Annotation;
 
 import org.apache.wicket.util.lang.Args;
-import org.wicketstuff.rest.annotations.parameters.ParamValidator;
+import org.wicketstuff.rest.annotations.parameters.ValidatorKey;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 
 // TODO: Auto-generated Javadoc
@@ -75,9 +75,9 @@ public class MethodParameter<T>
 		this.deaultValue = ReflectionUtils.getAnnotationField(annotation, "defaultValue", "");
 		
 		annotation = ReflectionUtils.findMethodParameterAnnotation(ownerMethod.getMethod(),
-			paramIndex, ParamValidator.class);
+			paramIndex, ValidatorKey.class);
 		
-		this.valdatorKey = ReflectionUtils.getAnnotationField(annotation, "validatorKey", "");
+		this.valdatorKey = ReflectionUtils.getAnnotationField(annotation, "value", "");
 
 	}
 	/**

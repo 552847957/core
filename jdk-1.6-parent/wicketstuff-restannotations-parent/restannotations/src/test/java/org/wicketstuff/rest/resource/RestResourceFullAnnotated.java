@@ -32,10 +32,10 @@ import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.annotations.parameters.CookieParam;
 import org.wicketstuff.rest.annotations.parameters.HeaderParam;
 import org.wicketstuff.rest.annotations.parameters.MatrixParam;
-import org.wicketstuff.rest.annotations.parameters.ParamValidator;
 import org.wicketstuff.rest.annotations.parameters.PathParam;
 import org.wicketstuff.rest.annotations.parameters.RequestBody;
 import org.wicketstuff.rest.annotations.parameters.RequestParam;
+import org.wicketstuff.rest.annotations.parameters.ValidatorKey;
 import org.wicketstuff.rest.contenthandling.RestMimeTypes;
 import org.wicketstuff.rest.contenthandling.serialdeserial.TestJsonDesSer;
 import org.wicketstuff.rest.utils.http.HttpMethod;
@@ -51,7 +51,7 @@ public class RestResourceFullAnnotated extends AbstractRestResource<TestJsonDesS
 	}
 	
 	@Override
-	protected void configureObjSerialDeserial(TestJsonDesSer objSerialDeserial)
+	protected void onInitialize(TestJsonDesSer objSerialDeserial)
 	{
 		EmailAddressValidator emailValidator = EmailAddressValidator.getInstance();
 		
@@ -165,7 +165,7 @@ public class RestResourceFullAnnotated extends AbstractRestResource<TestJsonDesS
 	}
 	
 	@MethodMapping(value = "/emailvalidator", produces = RestMimeTypes.TEXT_PLAIN)
-	public String testEmailValidator(@RequestParam("email") @ParamValidator(validatorKey = "emailvalidator") String email) {
+	public String testEmailValidator(@RequestParam("email") @ValidatorKey("emailvalidator") String email) {
 		return email;
 	}
 	

@@ -16,6 +16,7 @@
  */
 package org.wicketstuff.rest.resource;
 
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ import org.wicketstuff.rest.annotations.parameters.RequestParam;
 import org.wicketstuff.rest.contenthandling.IWebSerialDeserial;
 import org.wicketstuff.rest.contenthandling.RestMimeTypes;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
+import org.wicketstuff.rest.utils.StringConverterInterpolator;
 import org.wicketstuff.rest.utils.http.HttpMethod;
 import org.wicketstuff.rest.utils.http.HttpUtils;
 import org.wicketstuff.rest.utils.reflection.MethodParameter;
@@ -83,7 +85,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	private final Map<String, List<MethodMappingInfo>> mappedMethods;
 	
 	/**
-	 * 
+	 * HashMap that stores the validators registered by the resource.
 	 */
 	private final Map<String, IValidator> declaredValidators = new HashMap<String, IValidator>();
 	
@@ -125,6 +127,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		this.mappedMethods = loadAnnotatedMethods(new MultiMap<String, MethodMappingInfo>());
 
 		configureObjSerialDeserial(serialDeserial);
+		onInitialize(serialDeserial);
 	}
 
 	/***
@@ -169,7 +172,10 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			List<IValidationError> validationErrors = validateMethodParameters(mappedMethod, parametersValues);
 
 			if(validationErrors.size() > 0)
-			{
+			{	
+				IValidationError error = validationErrors.get(0);
+				Serializable message = error.getErrorMessage(this);
+				System.out.println(message);
 				return;
 			}
 			
@@ -224,7 +230,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 				validator.validate(validatable);
 				errors.addAll(validatable.getErrors());
 			}
-			else if(Strings.isEmpty(validatorKey))
+			else if(!Strings.isEmpty(validatorKey))
 			{
 				log.debug("No validator found for key '" + validatorKey + "'");
 			}
@@ -233,16 +239,15 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		return errors;
 	}
 	
-	private String resolveErrorMessage(List<IValidationError> errors)
-	{
-		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
-		return null;
-	}
-	
 	@Override
 	public String getMessage(String key, Map<String, Object> vars) 
 	{
-		return null;
+		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
+		String resourceValue = localizer.getString(key, null);
+		
+		StringConverterInterpolator interpolator = new StringConverterInterpolator(resourceValue, vars, false); 
+		
+		return interpolator.toString();
 	}
 	
 	/**
@@ -386,13 +391,25 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 
 	/**
 	 * Method called to initialize and configure the object serializer/deserializer.
+	 * @deprecated use {@link onConfigure(T objSerialDeserial)} instead.
 	 * 
 	 * @param objSerialDeserial
 	 *            the object serializer/deserializer
 	 */
+	@Deprecated
 	protected void configureObjSerialDeserial(T objSerialDeserial)
 	{
-	};
+	}
+	
+	/**
+	 * Method called to initialize and configure the resource.
+	 * 
+	 * @param objSerialDeserial
+	 *            the object serializer/deserializer
+	 */
+	protected void onInitialize(T objSerialDeserial)
+	{
+	}
 
 	/***
 	 * Internal method to load class methods annotated with {@link MethodMapping}
@@ -714,7 +731,6 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	private Object extractParameterFromUrl(MethodParameter methodParameter,
 		Iterator<String> pathParamIterator)
 	{
-
 		if (!pathParamIterator.hasNext())
 			return null;
 
