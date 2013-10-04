@@ -25,10 +25,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.wicket.Application;
-import org.apache.wicket.Localizer;
 import org.apache.wicket.Session;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
@@ -41,6 +41,7 @@ import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.IResource;
 import org.apache.wicket.request.resource.IResource.Attributes;
+import org.apache.wicket.resource.loader.IStringResourceLoader;
 import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
@@ -142,60 +143,80 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	public final void respond(Attributes attributes)
 	{
 		AttributesWrapper attributesWrapper = new AttributesWrapper(attributes);
-
-		PageParameters pageParameters = attributesWrapper.getPageParameters();
 		WebResponse response = attributesWrapper.getWebResponse();
 		HttpMethod httpMethod = attributesWrapper.getHttpMethod();
 
-		// 1-select the best "candidate" method to serve the request
+		//select the best "candidate" method to serve the request
 		MethodMappingInfo mappedMethod = selectMostSuitedMethod(attributesWrapper);
 
 		if (mappedMethod != null)
 		{
-			// 2-check if user is authorized to invoke the method
-			if (!isUserAuthorized(mappedMethod))
-			{
-				response.sendError(401, "User is not allowed to use this resource.");
-				return;
-			}
-
-			// 3-extract method parameters
-			List parametersValues = extractMethodParameters(mappedMethod, attributesWrapper);
-
-			if (parametersValues == null)
-			{
-				noSuitableMethodFound(response, httpMethod);
-				return;
-			}
-
-			// 4-validate method parameters
-			List<IValidationError> validationErrors = validateMethodParameters(mappedMethod, parametersValues);
-
-			if(validationErrors.size() > 0)
-			{	
-				IValidationError error = validationErrors.get(0);
-				Serializable message = error.getErrorMessage(this);
-				System.out.println(message);
-				return;
-			}
-			
-			// 5-invoke method triggering the before-after hooks
-			onBeforeMethodInvoked(mappedMethod, attributes);
-			Object result = invokeMappedMethod(mappedMethod.getMethod(), parametersValues, response);
-			onAfterMethodInvoked(mappedMethod, attributes, result);
-
-			// 6-if the invoked method returns a value, it is written to response
-			if (result != null)
-			{
-				serializeObjectToResponse(response, result, mappedMethod.getMimeOutputFormat());
-			}
+			handleMethodExecution(attributesWrapper, mappedMethod);
 		}
 		else
 		{
 			noSuitableMethodFound(response, httpMethod);
 		}
 	}
+	
+	/**
+	 * 
+	 * @param attributesWrapper
+	 * @param mappedMethod
+	 */
+	private void handleMethodExecution(AttributesWrapper attributesWrapper, MethodMappingInfo mappedMethod) {
+		WebResponse response = attributesWrapper.getWebResponse();
+		HttpMethod httpMethod = attributesWrapper.getHttpMethod();
+		Attributes attributes = attributesWrapper.getOriginalAttributes();
+		
+		// 1-check if user is authorized to invoke the method
+		if (!isUserAuthorized(mappedMethod))
+		{
+			response.sendError(401, "User is not allowed to use this resource.");
+			return;
+		}
 
+		// 2-extract method parameters
+		List parametersValues = extractMethodParameters(mappedMethod, attributesWrapper);
+
+		if (parametersValues == null)
+		{
+			noSuitableMethodFound(response, httpMethod);
+			return;
+		}
+
+		// 3-validate method parameters
+		List<IValidationError> validationErrors = validateMethodParameters(mappedMethod, parametersValues);
+
+		if(validationErrors.size() > 0)
+		{	
+			IValidationError error = validationErrors.get(0);
+			Serializable message = error.getErrorMessage(this);
+			
+			response.sendError(400, message.toString());
+			return;
+		}
+		
+		// 4-invoke method triggering the before-after hooks
+		onBeforeMethodInvoked(mappedMethod, attributes);
+		Object result = invokeMappedMethod(mappedMethod.getMethod(), parametersValues, response);
+		onAfterMethodInvoked(mappedMethod, attributes, result);
+
+		// 5-if the invoked method returns a value, it is written to response
+		if (result != null)
+		{
+			serializeObjectToResponse(response, result, mappedMethod.getMimeOutputFormat());
+		}
+	}
+	
+	/**
+	 * Check if user is allowed to run a method annotated with {@link AuthorizeInvocation}
+	 * 
+	 * @param mappedMethod
+	 * 		the target method
+	 * @return
+	 * 		true if user is allowed, else otherwise
+	 */
 	private boolean isUserAuthorized(MethodMappingInfo mappedMethod)
 	{
 		if (!hasAny(mappedMethod.getRoles()))
@@ -206,12 +227,30 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		return true;
 	}
 	
+	/**
+	 * This method can be used to write a standard error message to the current response object when
+	 * no mapped method has been found for the current request.
+	 * 
+	 * @param response
+	 * 			the current response object
+	 * @param httpMethod
+	 * 			the HTTP method of the current request
+	 */
 	protected void noSuitableMethodFound(WebResponse response, HttpMethod httpMethod)
 	{
 		response.sendError(400, "No suitable method found for URL '" + extractUrlFromRequest() +
 			"' and HTTP method " + httpMethod);
 	}
 
+	/**
+	 * Validate parameter values of the mapped method we want to execute.
+	 * 
+	 * @param mappedMethod
+	 * 			the target mapped methos
+	 * @param parametersValues
+	 * 			the parameter values
+	 * @return the list of validation errors, it is empty if validation succeeds
+	 */
 	private List<IValidationError> validateMethodParameters(MethodMappingInfo mappedMethod, List parametersValues)
 	{
 		List<MethodParameter> methodParameters = mappedMethod.getMethodParameters();
@@ -242,10 +281,22 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	@Override
 	public String getMessage(String key, Map<String, Object> vars) 
 	{
-		Localizer localizer = Application.get().getResourceSettings().getLocalizer();
-		String resourceValue = localizer.getString(key, null);
+		String resourceValue = null;
+		List<IStringResourceLoader> resourceLoaders = 
+				Application.get().getResourceSettings().getStringResourceLoaders();
+		Locale locale = Session.get().getLocale();
+		String style = Session.get().getStyle();
 		
-		StringConverterInterpolator interpolator = new StringConverterInterpolator(resourceValue, vars, false); 
+		for (IStringResourceLoader stringResourceLoader : resourceLoaders) 
+		{
+			resourceValue = stringResourceLoader.loadStringResource(getClass(), key, locale, style, null);
+			
+			if(resourceValue != null)
+				break;
+		}
+		
+		StringConverterInterpolator interpolator = new StringConverterInterpolator(
+				resourceValue != null ? resourceValue : "", vars, false, locale); 
 		
 		return interpolator.toString();
 	}
@@ -852,6 +903,8 @@ class AttributesWrapper
 	private final PageParameters pageParameters;
 
 	private final HttpMethod httpMethod;
+	
+	private final Attributes originalAttributes;
 
 	public AttributesWrapper(Attributes attributes)
 	{
@@ -859,6 +912,12 @@ class AttributesWrapper
 		this.webResponse = (WebResponse)attributes.getResponse();
 		this.pageParameters = attributes.getParameters();
 		this.httpMethod = HttpUtils.getHttpMethod(attributes.getRequest());
+		this.originalAttributes = attributes;
+	}
+
+	public Attributes getOriginalAttributes() 
+	{		
+		return originalAttributes;
 	}
 
 	public WebResponse getWebResponse()
