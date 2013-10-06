@@ -160,6 +160,9 @@ public class RestResourcesTest {
 		tester.executeUrl("./api/emailvalidator");
 		testIfResponseStringIsEqual("");
 		
+		String errorMessage = tester.getLastResponse().getErrorMessage();
+		assertEquals("The value inserted as email is not valid.", errorMessage);
+		
 		String email = "avalid@mail.com";
 		
 		tester.getRequest().setMethod("GET");

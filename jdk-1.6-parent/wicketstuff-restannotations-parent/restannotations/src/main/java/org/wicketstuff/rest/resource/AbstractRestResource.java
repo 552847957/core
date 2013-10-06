@@ -138,6 +138,9 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 * If no method is found to serve the current request, a 400 HTTP code is returned to the
 	 * client. Similarly, a 401 HTTP code is return if the user doesn't own one of the roles
 	 * required to execute an annotated method (See {@link AuthorizeInvocation}).
+	 * 
+	 * @param attributes
+	 * 		the Attribute object of the current request
 	 */
 	@Override
 	public final void respond(Attributes attributes)
@@ -160,9 +163,12 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	}
 	
 	/**
+	 * Handle the different steps (authorization, validation, etc...) involved in method execution.
 	 * 
 	 * @param attributesWrapper
+	 * 		
 	 * @param mappedMethod
+	 * 		
 	 */
 	private void handleMethodExecution(AttributesWrapper attributesWrapper, MethodMappingInfo mappedMethod) {
 		WebResponse response = attributesWrapper.getWebResponse();
