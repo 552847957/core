@@ -14,7 +14,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.utils;
+package org.wicketstuff.rest.utils.wicket;
 
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +38,7 @@ public class StringConverterInterpolator extends MapVariableInterpolator{
 	protected String getValue(String variableName)
 	{
 		Object value = super.getValue(variableName);
+		
 		if (value == null)
 		{
 			return null;

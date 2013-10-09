@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.apache.wicket.Application;
@@ -33,14 +32,12 @@ import org.apache.wicket.Session;
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.authroles.authorization.strategies.role.IRoleCheckingStrategy;
 import org.apache.wicket.authroles.authorization.strategies.role.Roles;
-import org.apache.wicket.request.Response;
 import org.apache.wicket.request.Url;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.IResource;
-import org.apache.wicket.resource.loader.IStringResourceLoader;
 import org.apache.wicket.util.collections.MultiMap;
 import org.apache.wicket.util.convert.IConverter;
 import org.apache.wicket.util.lang.Args;
@@ -62,15 +59,12 @@ import org.wicketstuff.rest.annotations.parameters.RequestParam;
 import org.wicketstuff.rest.contenthandling.IWebSerialDeserial;
 import org.wicketstuff.rest.contenthandling.RestMimeTypes;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
-import org.wicketstuff.rest.utils.AttributesWrapper;
-import org.wicketstuff.rest.utils.StringConverterInterpolator;
 import org.wicketstuff.rest.utils.http.HttpMethod;
 import org.wicketstuff.rest.utils.http.HttpUtils;
-import org.wicketstuff.rest.utils.patterns.compositechain.AuthorizationCheckAction;
-import org.wicketstuff.rest.utils.patterns.compositechain.CompoundAction;
-import org.wicketstuff.rest.utils.patterns.compositechain.IAction;
 import org.wicketstuff.rest.utils.reflection.MethodParameter;
 import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
+import org.wicketstuff.rest.utils.wicket.AttributesWrapper;
+import org.wicketstuff.rest.utils.wicket.DefaultBundleResolver;
 
 /**
  * Base class to build a resource that serves REST requests.
@@ -78,7 +72,7 @@ import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
  * @author andrea del bene
  * 
  */
-public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource, IErrorMessageSource, IAction
+public abstract class AbstractRestResource<T extends IWebSerialDeserial> implements IResource
 {
 	private static final Logger log = LoggerFactory.getLogger(AbstractRestResource.class);
 
@@ -102,7 +96,8 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	/** Role-checking strategy. */
 	private final IRoleCheckingStrategy roleCheckingStrategy;
 	
-	private final CompoundAction handleMethodActions;
+	/** Bundle resolver */
+	private final IErrorMessageSource bundleResolver = new DefaultBundleResolver(getClass());
 
 	/**
 	 * Constructor with no role-checker (i.e we don't use annotation {@link AuthorizeInvocation}).
@@ -131,19 +126,9 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		this.objSerialDeserial = serialDeserial;
 		this.roleCheckingStrategy = roleCheckingStrategy;
 		this.mappedMethods = loadAnnotatedMethods(new MultiMap<String, MethodMappingInfo>());
-		this.handleMethodActions = buildDefaultActions();
 		
 		configureObjSerialDeserial(serialDeserial);
 		onInitialize(serialDeserial);
-	}
-
-	private CompoundAction buildDefaultActions() 
-	{
-		CompoundAction compoundAction = new CompoundAction();
-		compoundAction.add(new AuthorizationCheckAction(roleCheckingStrategy));
-		compoundAction.add(this);
-		
-		return compoundAction;
 	}
 
 	/***
@@ -168,13 +153,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		MethodMappingInfo mappedMethod = selectMostSuitedMethod(attributesWrapper);
 
 		if (mappedMethod != null)
-		{
-			Map context = new HashMap();
-			context.put("attributesWrapper", attributesWrapper);
-			context.put("mappedMethod", mappedMethod);
-			
-			handleMethodActions.executeAction(context);
-			
+		{	
 			handleMethodExecution(attributesWrapper, mappedMethod);
 		}
 		else
@@ -183,26 +162,6 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		}
 	}
 	
-	@Override
-	public boolean executeAction(Map context) 
-	{
-		AttributesWrapper attributesWrapper = (AttributesWrapper) context.get("attributesWrapper");
-		MethodMappingInfo mappedMethod = (MethodMappingInfo) context.get("mappedMethod");
-		List parametersValues = (List) context.get("parametersValues");
-		
-		//invoke method triggering the before-after hooks
-		onBeforeMethodInvoked(mappedMethod, attributesWrapper.getOriginalAttributes());
-		Object result = invokeMappedMethod(mappedMethod.getMethod(), parametersValues, attributesWrapper.getWebResponse());
-		onAfterMethodInvoked(mappedMethod, attributesWrapper.getOriginalAttributes(), result);
-
-		//if the invoked method returns a value, it is written to response
-		if (result != null)
-		{
-			serializeObjectToResponse(attributesWrapper.getWebResponse(), result, mappedMethod.getMimeOutputFormat());
-		}
-		
-		return true;
-	}
 	/**
 	 * Handle the different steps (authorization, validation, etc...) involved in method execution.
 	 * 
@@ -218,7 +177,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		Attributes attributes = attributesWrapper.getOriginalAttributes();
 		
 		// 1-check if user is authorized to invoke the method
-		if (!isUserAuthorized(mappedMethod))
+		if (!isUserAuthorized(mappedMethod.getRoles()))
 		{
 			response.sendError(401, "User is not allowed to use this resource.");
 			return;
@@ -239,7 +198,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		if(validationErrors.size() > 0)
 		{	
 			IValidationError error = validationErrors.get(0);
-			Serializable message = error.getErrorMessage(this);
+			Serializable message = error.getErrorMessage(bundleResolver);
 			
 			response.sendError(400, message.toString());
 			return;
@@ -266,14 +225,16 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 * @return
 	 * 		true if user is allowed, else otherwise
 	 */
-	private boolean isUserAuthorized(MethodMappingInfo mappedMethod)
+	private boolean isUserAuthorized(Roles roles)
 	{
-		if (!hasAny(mappedMethod.getRoles()))
+		if (roles.isEmpty())
 		{
-			return false;
+			return true;
 		}
-		
-		return true;
+		else
+		{
+			return roleCheckingStrategy.hasAnyRole(roles);
+		}
 	}
 	
 	/**
@@ -325,29 +286,6 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		}
 		
 		return errors;
-	}
-	
-	@Override
-	public String getMessage(String key, Map<String, Object> vars) 
-	{
-		String resourceValue = null;
-		List<IStringResourceLoader> resourceLoaders = 
-				Application.get().getResourceSettings().getStringResourceLoaders();
-		Locale locale = Session.get().getLocale();
-		String style = Session.get().getStyle();
-		
-		for (IStringResourceLoader stringResourceLoader : resourceLoaders) 
-		{
-			resourceValue = stringResourceLoader.loadStringResource(getClass(), key, locale, style, null);
-			
-			if(resourceValue != null)
-				break;
-		}
-		
-		StringConverterInterpolator interpolator = new StringConverterInterpolator(
-				resourceValue != null ? resourceValue : "", vars, false, locale); 
-		
-		return interpolator.toString();
 	}
 	
 	/**
@@ -819,7 +757,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	}
 
 	/***
-	 * Extract a parameter values from the rest URL.
+	 * Extract a parameter values from the REST URL.
 	 * 
 	 * @param methodParameter
 	 *            the current method parameter.
@@ -864,29 +802,10 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 			WebResponse response = (WebResponse)RequestCycle.get().getResponse();
 
 			response.setStatus(400);
-			log.debug("Could not find a suitable constructor for value '" + value + "' of type '" +
+			log.debug("Could not find a suitable converter for value '" + value + "' of type '" +
 				clazz + "'");
 
 			return null;
-		}
-	}
-
-	/**
-	 * Utility method to check that the user owns one of the roles provided in input.
-	 * 
-	 * @param roles
-	 *            the checked roles.
-	 * @return true if the user owns one of roles in input, false otherwise.
-	 */
-	protected final boolean hasAny(Roles roles)
-	{
-		if (roles.isEmpty())
-		{
-			return true;
-		}
-		else
-		{
-			return roleCheckingStrategy.hasAnyRole(roles);
 		}
 	}
 
@@ -900,10 +819,8 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	{
 		try
 		{
-			Response request = RequestCycle.get().getResponse();
-			WebResponse webRequest = (WebResponse)request;
-
-			webRequest.setStatus(statusCode);
+			WebResponse webResponse = (WebResponse) RequestCycle.get().getResponse();
+			webResponse.setStatus(statusCode);
 		}
 		catch (Exception e)
 		{
