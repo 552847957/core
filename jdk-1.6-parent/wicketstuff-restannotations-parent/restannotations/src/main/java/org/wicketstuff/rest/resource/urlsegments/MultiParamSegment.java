@@ -131,4 +131,17 @@ public class MultiParamSegment extends AbstractURLSegment
 	{
 		return subSegments;
 	}
+
+	@Override
+	public StringBuffer populateVariableFromEntity(Object entity)
+	{
+	    StringBuffer buffer = new StringBuffer();
+	    
+	    for (AbstractURLSegment urlSegment : subSegments)
+	    {
+		buffer.append(urlSegment.populateVariableFromEntity(entity));
+	    }
+	    
+	    return buffer;
+	}
 }

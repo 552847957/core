@@ -29,6 +29,7 @@
 		<module>restannotations</module>
 		<module>restannotations-json</module>
 		<module>restannotations-examples</module>
+		<module>restannotations-hateoas</module>
 	</modules>
 	<!--url>http://wicket.apache.org/${project.artifactId}</url -->
 	<inceptionYear>2013</inceptionYear>

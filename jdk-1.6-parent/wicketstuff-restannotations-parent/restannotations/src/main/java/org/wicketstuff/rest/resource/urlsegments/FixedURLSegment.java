@@ -56,4 +56,10 @@ public class FixedURLSegment extends AbstractURLSegment
 		// I don'have path variables, I do nothing
 	}
 
+	@Override
+	public StringBuffer populateVariableFromEntity(Object entity)
+	{
+	    return new StringBuffer(toString());
+	}
+
 }
