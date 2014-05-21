@@ -16,22 +16,37 @@
  */
 package org.wicketstuff.rest.hateoas;
 
-import java.util.List;
+import org.wicketstuff.rest.resource.MethodMappingInfo;
 
-public class HateoasResource<T> {
-	private final T targetEntity;
-	private final List<String> links;
+public class MappedHypermediaLink {
+	private final MethodMappingInfo mappingInfo;
+	private final String rel;
+	private final String type;
+	private final Class<?> entityClass;
 	
-	public HateoasResource(T targetEntity, List<String> links) {
-		this.targetEntity = targetEntity;
-		this.links = links;
+	public MappedHypermediaLink(MethodMappingInfo mappingInfo, String rel, String type, 
+		          Class<?> entityClass) {
+		this.mappingInfo = mappingInfo;
+		this.rel = rel;
+		this.type = type;
+		this.entityClass = entityClass;
 	}
 
-	public Object getTargetEntity() {
-		return targetEntity;
+	public String getRel() {
+		return rel;
 	}
 
-	public List<String> getLinks() {
-		return links;
+	public String getType() {
+		return type;
+	}
+
+	public Class<?> getResourceClass()
+	{
+	    return entityClass;
+	}
+
+	public MethodMappingInfo getMappingInfo()
+	{
+	    return mappingInfo;
 	}
 }

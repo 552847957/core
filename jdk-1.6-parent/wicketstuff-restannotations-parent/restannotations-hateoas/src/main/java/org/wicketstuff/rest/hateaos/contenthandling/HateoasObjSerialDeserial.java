@@ -22,24 +22,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.wicket.WicketRuntimeException;
+import org.apache.wicket.ajax.json.JSONObject;
+import org.apache.wicket.util.string.Strings;
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.hateaos.annotations.HypermediaEntityLink;
-import org.wicketstuff.rest.hateoas.HateoasResource;
 import org.wicketstuff.rest.hateoas.HypermediaLink;
+import org.wicketstuff.rest.hateoas.MappedHypermediaLink;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
 
 public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 {
-    private final Map<Class<?>, List<HypermediaLink>> hypermediaLinks = new ConcurrentHashMap<Class<?>, List<HypermediaLink>>();
+    private final Map<Class<?>, List<MappedHypermediaLink>> hypermediaLinks = new ConcurrentHashMap<Class<?>, List<MappedHypermediaLink>>();
     private final IObjectSerialDeserial<String> delegateSerialDeserial;
-    
+
     public HateoasObjSerialDeserial(
-	    IObjectSerialDeserial<String> delegateSerialDeserial, Class<?>... targetClasses)
+	    IObjectSerialDeserial<String> delegateSerialDeserial,
+	    Class<?>... targetClasses)
     {
 	this.delegateSerialDeserial = delegateSerialDeserial;
-	
+
 	for (Class<?> clazz : targetClasses)
 	{
 	    loadAnnotatedMethods(clazz);
@@ -49,13 +53,15 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
     private void loadAnnotatedMethods(Class<?> wicketResource)
     {
 	Method[] methods = wicketResource.getDeclaredMethods();
-	
+
 	for (Method method : methods)
 	{
-	    MethodMapping methodMapped = method.getAnnotation(MethodMapping.class);
-	    HypermediaEntityLink resourceLink = method.getAnnotation(HypermediaEntityLink.class);
-	    
-	    if(methodMapped != null && resourceLink != null)
+	    MethodMapping methodMapped = method
+		    .getAnnotation(MethodMapping.class);
+	    HypermediaEntityLink resourceLink = method
+		    .getAnnotation(HypermediaEntityLink.class);
+
+	    if (methodMapped != null && resourceLink != null)
 	    {
 		addHypermediaLink(method, methodMapped, resourceLink);
 	    }
@@ -66,49 +72,72 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 	    HypermediaEntityLink resourceLink)
     {
 	Class<?> entityClass = resourceLink.entityClass();
-	List<HypermediaLink> linkslist = hypermediaLinks.get(entityClass);
-	MethodMappingInfo mappingInfo = new MethodMappingInfo(methodMapped, method);
+	List<MappedHypermediaLink> linkslist = hypermediaLinks.get(entityClass);
+	MethodMappingInfo mappingInfo = new MethodMappingInfo(methodMapped,
+		method);
 	String rel = resourceLink.linkRel();
 	String type = resourceLink.linkType();
-	
-	if(linkslist == null)
+
+	if (linkslist == null)
 	{
-	    linkslist = new ArrayList<HypermediaLink>();
+	    linkslist = new ArrayList<MappedHypermediaLink>();
 	    hypermediaLinks.put(entityClass, linkslist);
 	}
-	
-	linkslist.add(new HypermediaLink(mappingInfo, rel, type, entityClass));
+
+	linkslist.add(new MappedHypermediaLink(mappingInfo, rel, type,
+		entityClass));
     }
 
     @Override
     public String serializeObject(Object target, String mimeType)
     {
-	List<HypermediaLink> entityLinks = hypermediaLinks.get(target.getClass());
-	List<String> links = new ArrayList<String>();
-	
-	if(entityLinks != null)
-	{    	
-        	for (HypermediaLink hypermediaLink : entityLinks)
-        	{
-        	    List<AbstractURLSegment> segments = hypermediaLink.getMappingInfo().getSegments();
-        	    StringBuffer linkUrl = generateHypermediaLink(segments, target);
-        	    links.add(linkUrl.toString());
-        	}
+	List<MappedHypermediaLink> entityLinks = hypermediaLinks.get(target
+		.getClass());
+	List<HypermediaLink> links = new ArrayList<HypermediaLink>();
+
+	if (entityLinks != null)
+	{
+	    for (MappedHypermediaLink hypermediaLink : entityLinks)
+	    {
+		List<AbstractURLSegment> segments = hypermediaLink
+			.getMappingInfo().getSegments();
+		StringBuffer linkUrl = generateHypermediaLink(segments, target);
+		links.add(new HypermediaLink(hypermediaLink.getRel(),
+			hypermediaLink.getType(), linkUrl.toString()));
+	    }
 	}
 	
-	return delegateSerialDeserial.serializeObject(new HateoasResource(target, links), mimeType);
+	String jsonLinks = "";
+	try
+	{
+	    jsonLinks = new JSONObject().put("links", links).toString();
+	} catch (Exception e)
+	{
+	    throw new WicketRuntimeException("An error occurred during hateaos links serialization", e);
+	}
+	
+	String serializedObject = delegateSerialDeserial.serializeObject(target, mimeType);
+	
+	return Strings.beforeLast(jsonLinks, '}') + ',' + Strings.afterFirst(serializedObject, '{');
     }
 
-    private StringBuffer generateHypermediaLink(List<AbstractURLSegment> segments, Object target)
+    private StringBuffer generateHypermediaLink(
+	    List<AbstractURLSegment> segments, Object target)
     {
 	StringBuffer linkUrl = new StringBuffer('/');
-	
+	int maxSegmIndex = segments.size() - 1;
+
 	for (AbstractURLSegment abstractURLSegment : segments)
 	{
-	    linkUrl.append(abstractURLSegment.populateVariableFromEntity(target))
-	           .append('/');
+	    linkUrl.append(
+		     abstractURLSegment.populateVariableFromEntity(target));
+	    
+	    if(segments.indexOf(abstractURLSegment) < maxSegmIndex )
+	    {
+		linkUrl.append('/');
+	    }		   
 	}
-	
+
 	return linkUrl;
     }
 
@@ -116,6 +145,7 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
     public <E> E deserializeObject(String source, Class<E> targetClass,
 	    java.lang.String mimeType)
     {
-	return delegateSerialDeserial.deserializeObject(source, targetClass, mimeType);
+	return delegateSerialDeserial.deserializeObject(source, targetClass,
+		mimeType);
     }
 }
