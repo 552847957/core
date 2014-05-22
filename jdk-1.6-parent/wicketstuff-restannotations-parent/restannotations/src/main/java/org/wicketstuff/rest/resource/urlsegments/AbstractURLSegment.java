@@ -22,6 +22,7 @@ import static org.apache.wicket.util.parse.metapattern.MetaPattern.RIGHT_CURLY;
 import static org.apache.wicket.util.parse.metapattern.MetaPattern.VARIABLE_NAME;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.wicket.util.parse.metapattern.MetaPattern;
@@ -38,7 +39,9 @@ import org.apache.wicket.util.string.StringValue;
  */
 public abstract class AbstractURLSegment extends StringValue
 {
-	/** MetaPattern to identify the content of a regular expression. */
+	private static final long serialVersionUID = 1L;
+	
+        /** MetaPattern to identify the content of a regular expression. */
 	public static final MetaPattern REGEXP_BODY = new MetaPattern("([^\\}\\{]*|(\\{[\\d]+\\}))*");
 	/** MetaPattern to identify the declaration of a regular expression. */
 	public static final MetaPattern REGEXP_DECLARATION = new MetaPattern(COLON, REGEXP_BODY);
@@ -93,7 +96,7 @@ public abstract class AbstractURLSegment extends StringValue
 	 */
 	public abstract int calculateScore(String segment);
 	
-	public abstract StringBuffer populateVariableFromEntity(Object entity);
+	public abstract StringBuffer populateVariableFromEntity(Iterator<String> variableVal);
 	
 	/**
 	 * Get the segment value without optional matrix parameters. For example given the following

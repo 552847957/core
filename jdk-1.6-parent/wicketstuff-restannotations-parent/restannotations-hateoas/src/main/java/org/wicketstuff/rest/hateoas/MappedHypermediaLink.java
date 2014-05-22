@@ -16,6 +16,13 @@
  */
 package org.wicketstuff.rest.hateoas;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+
+import org.wicketstuff.rest.hateaos.annotations.HypermediaParameter;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 
 public class MappedHypermediaLink {
@@ -23,13 +30,17 @@ public class MappedHypermediaLink {
 	private final String rel;
 	private final String type;
 	private final Class<?> entityClass;
+	private final HypermediaParameter[] linkParams;
 	
 	public MappedHypermediaLink(MethodMappingInfo mappingInfo, String rel, String type, 
-		          Class<?> entityClass) {
+		          HypermediaParameter[] linkParams, Class<?> entityClass) {
 		this.mappingInfo = mappingInfo;
 		this.rel = rel;
 		this.type = type;
 		this.entityClass = entityClass;
+		this.linkParams = linkParams;
+		
+		Arrays.sort(this.linkParams, new HypermediaParameterComparator());
 	}
 
 	public String getRel() {
@@ -48,5 +59,28 @@ public class MappedHypermediaLink {
 	public MethodMappingInfo getMappingInfo()
 	{
 	    return mappingInfo;
+	}
+
+	public Iterator<String> getPropertiesIterator()
+	{
+	    List<String> properties = new ArrayList<String>();
+	    
+	    for (int i = 0; i < linkParams.length; i++)
+	    {
+		properties.add(linkParams[i].propertyExpression());
+	    }
+	    
+	    return properties.iterator();
+	}
+	
+	static class HypermediaParameterComparator implements Comparator<HypermediaParameter> {
+
+	    @Override
+	    public int compare(HypermediaParameter hypermediaParameter, HypermediaParameter otherHypermediaParameter)
+	    {
+		return Integer.compare(hypermediaParameter.parameterIndex(), 
+				       otherHypermediaParameter.parameterIndex());
+	    }
+	    
 	}
 }

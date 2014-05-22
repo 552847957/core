@@ -16,6 +16,7 @@
  */
 package org.wicketstuff.rest.resource.urlsegments;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -57,7 +58,7 @@ public class FixedURLSegment extends AbstractURLSegment
 	}
 
 	@Override
-	public StringBuffer populateVariableFromEntity(Object entity)
+	public StringBuffer populateVariableFromEntity(Iterator<String> variableVal)
 	{
 	    return new StringBuffer(toString());
 	}

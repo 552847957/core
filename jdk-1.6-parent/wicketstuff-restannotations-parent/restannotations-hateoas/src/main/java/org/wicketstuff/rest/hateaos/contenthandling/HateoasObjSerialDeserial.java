@@ -18,16 +18,18 @@ package org.wicketstuff.rest.hateaos.contenthandling;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.ajax.json.JSONObject;
-import org.apache.wicket.util.string.Strings;
+import org.apache.wicket.core.util.lang.PropertyResolver;
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.hateaos.annotations.HypermediaEntityLink;
+import org.wicketstuff.rest.hateaos.annotations.HypermediaParameter;
 import org.wicketstuff.rest.hateoas.HypermediaLink;
 import org.wicketstuff.rest.hateoas.MappedHypermediaLink;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
@@ -35,6 +37,7 @@ import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
 
 public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 {
+    public static final String ENTITY_PREFIX = "entity.";
     private final Map<Class<?>, List<MappedHypermediaLink>> hypermediaLinks = new ConcurrentHashMap<Class<?>, List<MappedHypermediaLink>>();
     private final IObjectSerialDeserial<String> delegateSerialDeserial;
 
@@ -77,14 +80,15 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 		method);
 	String rel = resourceLink.linkRel();
 	String type = resourceLink.linkType();
-
+	HypermediaParameter[] linkParams = resourceLink.linkParams();
+	
 	if (linkslist == null)
 	{
 	    linkslist = new ArrayList<MappedHypermediaLink>();
 	    hypermediaLinks.put(entityClass, linkslist);
 	}
 
-	linkslist.add(new MappedHypermediaLink(mappingInfo, rel, type,
+	linkslist.add(new MappedHypermediaLink(mappingInfo, rel, type, linkParams,
 		entityClass));
     }
 
@@ -101,36 +105,34 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 	    {
 		List<AbstractURLSegment> segments = hypermediaLink
 			.getMappingInfo().getSegments();
-		StringBuffer linkUrl = generateHypermediaLink(segments, target);
+		StringBuffer linkUrl = generateHypermediaLink(segments, 
+			hypermediaLink.getPropertiesIterator(), target);
+		
 		links.add(new HypermediaLink(hypermediaLink.getRel(),
 			hypermediaLink.getType(), linkUrl.toString()));
 	    }
 	}
 	
-	String jsonLinks = "";
 	try
 	{
-	    jsonLinks = new JSONObject().put("links", links).toString();
+	    return new JSONObject(target).put("links", links).toString();
 	} catch (Exception e)
 	{
 	    throw new WicketRuntimeException("An error occurred during hateaos links serialization", e);
 	}
-	
-	String serializedObject = delegateSerialDeserial.serializeObject(target, mimeType);
-	
-	return Strings.beforeLast(jsonLinks, '}') + ',' + Strings.afterFirst(serializedObject, '{');
     }
 
     private StringBuffer generateHypermediaLink(
-	    List<AbstractURLSegment> segments, Object target)
+	    List<AbstractURLSegment> segments, Iterator<String> parametersExp, Object target)
     {
 	StringBuffer linkUrl = new StringBuffer('/');
 	int maxSegmIndex = segments.size() - 1;
-
+	Iterator<String> paramValues = resolveParametersExp(parametersExp, target);
+	
 	for (AbstractURLSegment abstractURLSegment : segments)
 	{
 	    linkUrl.append(
-		     abstractURLSegment.populateVariableFromEntity(target));
+		     abstractURLSegment.populateVariableFromEntity(paramValues));
 	    
 	    if(segments.indexOf(abstractURLSegment) < maxSegmIndex )
 	    {
@@ -141,9 +143,36 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 	return linkUrl;
     }
 
+    private Iterator<String> resolveParametersExp(Iterator<String> parametersExp, Object target)
+    {
+	List<String> values = new ArrayList<String>();
+	
+	while (parametersExp.hasNext())
+	{
+	    String expression = parametersExp.next();
+	    String value;
+	    
+	    if(expression.startsWith(ENTITY_PREFIX))
+	    {
+		value = PropertyResolver.getValue(
+			expression.replace(ENTITY_PREFIX, ""), 
+			target).toString();
+	    }
+	    else
+	    {
+		value = PropertyResolver.getValue(expression, this)
+			.toString();
+	    }
+	    
+	    values.add(value);
+	}
+	
+	return values.iterator();
+    }
+
     @Override
     public <E> E deserializeObject(String source, Class<E> targetClass,
-	    java.lang.String mimeType)
+	    String mimeType)
     {
 	return delegateSerialDeserial.deserializeObject(source, targetClass,
 		mimeType);

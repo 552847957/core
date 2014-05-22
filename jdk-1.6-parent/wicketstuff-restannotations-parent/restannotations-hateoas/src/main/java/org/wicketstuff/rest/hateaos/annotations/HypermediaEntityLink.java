@@ -27,4 +27,5 @@ public @interface HypermediaEntityLink {
     Class<?> entityClass();	
     String linkRel();
     String linkType();
+    HypermediaParameter[] linkParams() default {};
 }

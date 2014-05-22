@@ -16,10 +16,10 @@
  */
 package org.wicketstuff.rest.resource.urlsegments;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Matcher;
 
-import org.apache.wicket.core.util.lang.PropertyResolver;
 import org.apache.wicket.util.parse.metapattern.MetaPattern;
 import org.apache.wicket.util.string.StringValue;
 
@@ -92,10 +92,8 @@ public class ParamSegment extends AbstractURLSegment
 	}
 
 	@Override
-	public StringBuffer populateVariableFromEntity(Object entity)
+	public StringBuffer populateVariableFromEntity(Iterator<String> variableVal)
 	{
-	    Object value = PropertyResolver.getValue(paramName, entity);
-	    
-	    return new StringBuffer(value.toString());
+	    return new StringBuffer(variableVal.next());
 	}
 }
