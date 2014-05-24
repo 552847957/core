@@ -14,14 +14,17 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.hateaos.annotations;
+package org.wicketstuff.rest.hateoas;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
+import java.util.Map;
 
-@Target(ElementType.METHOD)
-public @interface HypermediaParameter
+/**
+ * 
+ * @author andrea del bene
+ *
+ * @param <T>
+ */
+public interface IEntityContextProducer<T>
 {
-    int parameterIndex();
-    String propertyExpression();
+    public Map<String, ?> createContext(T entity);
 }

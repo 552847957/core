@@ -116,9 +116,9 @@ public class TextualWebSerialDeserial implements IWebSerialDeserial
     {
 	if (response.getContainerResponse() instanceof ServletResponse)
 	{
-	    ServletResponse sResponse = (ServletResponse) response
+	    ServletResponse servletResponse = (ServletResponse) response
 		    .getContainerResponse();
-	    sResponse.setCharacterEncoding(charset);
+	    servletResponse.setCharacterEncoding(charset);
 	}
     }
 

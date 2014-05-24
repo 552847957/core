@@ -18,35 +18,33 @@ package org.wicketstuff.rest.hateaos.contenthandling;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.wicket.WicketRuntimeException;
-import org.apache.wicket.ajax.json.JSONObject;
 import org.apache.wicket.core.util.lang.PropertyResolver;
+import org.apache.wicket.util.string.Strings;
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.hateaos.annotations.HypermediaEntityLink;
 import org.wicketstuff.rest.hateaos.annotations.HypermediaParameter;
 import org.wicketstuff.rest.hateoas.HypermediaLink;
+import org.wicketstuff.rest.hateoas.IEntityContextProducer;
 import org.wicketstuff.rest.hateoas.MappedHypermediaLink;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
 
-public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
+public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 {
-    public static final String ENTITY_PREFIX = "entity.";
+    public static final String ENTITY_PREFIX = "entity";
     private final Map<Class<?>, List<MappedHypermediaLink>> hypermediaLinks = new ConcurrentHashMap<Class<?>, List<MappedHypermediaLink>>();
-    private final IObjectSerialDeserial<String> delegateSerialDeserial;
-
-    public HateoasObjSerialDeserial(
-	    IObjectSerialDeserial<String> delegateSerialDeserial,
-	    Class<?>... targetClasses)
+    private final Map<Class<?>, IEntityContextProducer<?>> enitityContextProducers = new ConcurrentHashMap<Class<?>, IEntityContextProducer<?>>();
+    
+    public HateoasObjSerialDeserial(Class<?>... targetClasses)
     {
-	this.delegateSerialDeserial = delegateSerialDeserial;
-
 	for (Class<?> clazz : targetClasses)
 	{
 	    loadAnnotatedMethods(clazz);
@@ -98,36 +96,42 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 	List<MappedHypermediaLink> entityLinks = hypermediaLinks.get(target
 		.getClass());
 	List<HypermediaLink> links = new ArrayList<HypermediaLink>();
-
+	Map<String, ?> enitityContext = getEnitityContext(target);
+	
 	if (entityLinks != null)
 	{
 	    for (MappedHypermediaLink hypermediaLink : entityLinks)
-	    {
-		List<AbstractURLSegment> segments = hypermediaLink
-			.getMappingInfo().getSegments();
-		StringBuffer linkUrl = generateHypermediaLink(segments, 
-			hypermediaLink.getPropertiesIterator(), target);
+	    {		
+		StringBuffer linkUrl = generateHypermediaLink(hypermediaLink, enitityContext, target);
 		
 		links.add(new HypermediaLink(hypermediaLink.getRel(),
 			hypermediaLink.getType(), linkUrl.toString()));
 	    }
 	}
 	
-	try
-	{
-	    return new JSONObject(target).put("links", links).toString();
-	} catch (Exception e)
-	{
-	    throw new WicketRuntimeException("An error occurred during hateaos links serialization", e);
-	}
+	return serializeObject(target, links, mimeType);
+    }
+    
+    protected abstract String serializeObject(Object target, List<HypermediaLink> links,
+	    String mimeType);
+
+    @SuppressWarnings("unchecked")
+    private <T> Map<String, ?> getEnitityContext(Object target)
+    {
+	IEntityContextProducer<T> contextProducer = (IEntityContextProducer<T>) enitityContextProducers.get(target.getClass());
+	return contextProducer != null ? contextProducer.createContext((T) target) : Collections.EMPTY_MAP;
     }
 
-    private StringBuffer generateHypermediaLink(
-	    List<AbstractURLSegment> segments, Iterator<String> parametersExp, Object target)
+    private StringBuffer generateHypermediaLink(MappedHypermediaLink hypermediaLink, 
+	    					Map<String, ?> entityContext, Object target)
     {
+	List<AbstractURLSegment> segments = hypermediaLink
+		.getMappingInfo().getSegments();
 	StringBuffer linkUrl = new StringBuffer('/');
+	Iterator<String> parametersExp = hypermediaLink.getPropertiesIterator();
 	int maxSegmIndex = segments.size() - 1;
-	Iterator<String> paramValues = resolveParametersExp(parametersExp, target);
+	
+	Iterator<String> paramValues = resolveParametersExp(parametersExp, entityContext, target);
 	
 	for (AbstractURLSegment abstractURLSegment : segments)
 	{
@@ -143,38 +147,41 @@ public class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 	return linkUrl;
     }
 
-    private Iterator<String> resolveParametersExp(Iterator<String> parametersExp, Object target)
+    private Iterator<String> resolveParametersExp(Iterator<String> parametersExp, Map<String, ?> entityContext, Object target)
     {
 	List<String> values = new ArrayList<String>();
 	
 	while (parametersExp.hasNext())
 	{
 	    String expression = parametersExp.next();
+	    String[] splittedExp = expression.split("\\.");
+	    Object targetInstance;
 	    String value;
 	    
-	    if(expression.startsWith(ENTITY_PREFIX))
+	    
+	    if (splittedExp.length < 2)
 	    {
-		value = PropertyResolver.getValue(
-			expression.replace(ENTITY_PREFIX, ""), 
-			target).toString();
+		throw new IllegalArgumentException("The expression '" + expression + "' is not a valid property expression");
 	    }
-	    else
+	    
+	    if (splittedExp[0].equals(ENTITY_PREFIX))
 	    {
-		value = PropertyResolver.getValue(expression, this)
-			.toString();
+		targetInstance = target;
 	    }
+	    else 
+	    {
+		targetInstance = entityContext.get(splittedExp[0]);
+	    }
+	    
+	    String subExpression = Strings.join(".", Arrays.copyOfRange(splittedExp, 1, splittedExp.length));
+	    
+	    value = PropertyResolver.getValue(subExpression, targetInstance)
+		    .toString();
+	   
 	    
 	    values.add(value);
 	}
 	
 	return values.iterator();
-    }
-
-    @Override
-    public <E> E deserializeObject(String source, Class<E> targetClass,
-	    String mimeType)
-    {
-	return delegateSerialDeserial.deserializeObject(source, targetClass,
-		mimeType);
-    }
+    }    
 }

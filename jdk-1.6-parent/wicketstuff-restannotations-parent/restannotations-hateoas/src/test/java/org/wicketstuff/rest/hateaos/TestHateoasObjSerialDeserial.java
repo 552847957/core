@@ -16,49 +16,53 @@
  */
 package org.wicketstuff.rest.hateaos;
 
+import java.util.List;
+
+import org.apache.wicket.WicketRuntimeException;
 import org.apache.wicket.ajax.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
-import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.domain.PersonPojo;
 import org.wicketstuff.rest.hateaos.contenthandling.HateoasObjSerialDeserial;
+import org.wicketstuff.rest.hateoas.HypermediaLink;
 import org.wicketstuff.rest.resource.PersonsRestResource;
 
 public class TestHateoasObjSerialDeserial extends Assert
 {
-//    private WicketTester tester;
     private HateoasObjSerialDeserial objSerialDeserial = new HateoasObjSerialDeserial(
-	    new WicketObjSerialDeserial(), PersonsRestResource.class);
+	    PersonsRestResource.class)
+    {
 
-//    @Before
-//    public void setUp()
-//    {
-//	tester = new WicketTester(new WicketApplication(objSerialDeserial));
-//    }
+	@Override
+	public <E> E deserializeObject(String source, Class<E> targetClass,
+		String mimeType)
+	{
+	    return null;
+	}
+
+	@Override
+	protected String serializeObject(Object target,
+		List<HypermediaLink> links, String mimeType)
+	{
+	    try
+	    {
+		return new JSONObject(target).put("links", links).toString();
+	    } catch (Exception e)
+	    {
+		throw new WicketRuntimeException(
+			"An error occurred during hateaos links serialization",
+			e);
+	    }
+	}
+
+    };
 
     @Test
     public void test()
     {
-	PersonPojo person = new PersonPojo(1, "Freddie Mercury", "fmercury@queen.com", "Eeehooo!");
+	PersonPojo person = new PersonPojo(1, "Freddie Mercury",
+		"fmercury@queen.com", "Eeehooo!");
 	System.out.println(objSerialDeserial.serializeObject(person, ""));
     }
 
-}
-
-class WicketObjSerialDeserial implements IObjectSerialDeserial<String>
-{
-
-    @Override
-    public String serializeObject(Object target, String mimeType)
-    {
-	return new JSONObject(target).toString();
-    }
-
-    @Override
-    public <E> E deserializeObject(String source, Class<E> targetClass,
-	    String mimeType)
-    {
-	// TODO Auto-generated method stub
-	return null;
-    }
 }
