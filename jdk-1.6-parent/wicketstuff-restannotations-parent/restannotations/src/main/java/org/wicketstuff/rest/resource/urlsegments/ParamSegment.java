@@ -16,7 +16,6 @@
  */
 package org.wicketstuff.rest.resource.urlsegments;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Matcher;
 
@@ -89,11 +88,5 @@ public class ParamSegment extends AbstractURLSegment
 	public String getParamName()
 	{
 		return paramName;
-	}
-
-	@Override
-	public StringBuffer populateVariableFromEntity(Iterator<String> variableVal)
-	{
-	    return new StringBuffer(variableVal.next());
 	}
 }

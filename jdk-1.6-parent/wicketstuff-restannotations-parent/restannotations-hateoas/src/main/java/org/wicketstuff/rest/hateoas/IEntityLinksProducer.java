@@ -14,46 +14,17 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.wicketstuff.rest.resource.urlsegments;
+package org.wicketstuff.rest.hateoas;
 
-import java.util.Map;
-import java.util.regex.Pattern;
-
-import org.apache.wicket.util.parse.metapattern.MetaPattern;
+import java.util.List;
 
 /**
- * Segment class for segments without path parameter (i.e. with a fixed value).
  * 
  * @author andrea del bene
- * 
+ *
+ * @param <T>
  */
-public class FixedURLSegment extends AbstractURLSegment
+public interface IEntityLinksProducer<T>
 {
-
-	FixedURLSegment(String text)
-	{
-		super(text);
-	}
-
-	@Override
-	protected MetaPattern loadMetaPattern()
-	{
-		return new MetaPattern(Pattern.quote(this.toString()));
-	}
-
-	@Override
-	public int calculateScore(String segment)
-	{
-		if (segment.equals(this.toString()))
-			return 2;
-
-		return 0;
-	}
-
-	@Override
-	public void populatePathVariables(Map<String, String> variables, String segment)
-	{
-		// I don'have path variables, I do nothing
-	}
-
+    public List<HypermediaLink> createLinks(T entity);
 }

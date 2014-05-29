@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,12 +37,15 @@ import org.wicketstuff.rest.hateoas.IEntityContextProducer;
 import org.wicketstuff.rest.hateoas.MappedHypermediaLink;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
+import org.wicketstuff.rest.resource.urlsegments.FixedURLSegment;
+import org.wicketstuff.rest.resource.urlsegments.MultiParamSegment;
+import org.wicketstuff.rest.resource.urlsegments.ParamSegment;
 
 public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<String>
 {
     public static final String ENTITY_PREFIX = "entity";
     private final Map<Class<?>, List<MappedHypermediaLink>> hypermediaLinks = new ConcurrentHashMap<Class<?>, List<MappedHypermediaLink>>();
-    private final Map<Class<?>, IEntityContextProducer<?>> enitityContextProducers = new ConcurrentHashMap<Class<?>, IEntityContextProducer<?>>();
+    private final Map<Class<?>, List<IEntityContextProducer<?>>> enitityContextProducers = new ConcurrentHashMap<Class<?>, List<IEntityContextProducer<?>>>();
     
     public HateoasObjSerialDeserial(Class<?>... targetClasses)
     {
@@ -118,8 +122,22 @@ public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<
     @SuppressWarnings("unchecked")
     private <T> Map<String, ?> getEnitityContext(Object target)
     {
-	IEntityContextProducer<T> contextProducer = (IEntityContextProducer<T>) enitityContextProducers.get(target.getClass());
-	return contextProducer != null ? contextProducer.createContext((T) target) : Collections.EMPTY_MAP;
+	List<IEntityContextProducer<?>> contextProducer = enitityContextProducers.get(target.getClass());
+	
+	if(contextProducer == null)
+	{
+	    return Collections.emptyMap();
+	}
+	
+	Map<String, ?> entityContext = new HashMap<String, Object>();
+	
+	for (IEntityContextProducer<?> iEntityContextProducer : contextProducer)
+	{
+	    IEntityContextProducer<T> enityContextProducer = (IEntityContextProducer<T>) iEntityContextProducer;
+	    enityContextProducer.createContext((T)target, entityContext);
+	}
+	
+	return entityContext;
     }
 
     private StringBuffer generateHypermediaLink(MappedHypermediaLink hypermediaLink, 
@@ -135,8 +153,7 @@ public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<
 	
 	for (AbstractURLSegment abstractURLSegment : segments)
 	{
-	    linkUrl.append(
-		     abstractURLSegment.populateVariableFromEntity(paramValues));
+	    linkUrl.append(populateSegmentVariables(abstractURLSegment, paramValues));
 	    
 	    if(segments.indexOf(abstractURLSegment) < maxSegmIndex )
 	    {
@@ -145,6 +162,34 @@ public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<
 	}
 
 	return linkUrl;
+    }
+
+    private StringBuffer populateSegmentVariables(
+	    AbstractURLSegment abstractURLSegment, Iterator<String> paramValues)
+    {
+	StringBuffer buffer = new StringBuffer();
+	
+	if(abstractURLSegment instanceof FixedURLSegment)
+	{
+	    buffer.append(abstractURLSegment.toString());
+	}
+	
+	if(abstractURLSegment instanceof ParamSegment)
+	{
+	    buffer.append(paramValues.next());
+	}
+
+	if(abstractURLSegment instanceof MultiParamSegment)
+	{
+	    MultiParamSegment segment = (MultiParamSegment) abstractURLSegment;
+	    
+	    for (AbstractURLSegment urlSegment : segment.getSubSegments())
+	    {
+		buffer.append(populateSegmentVariables(urlSegment, paramValues));
+	    }
+	}
+	
+	return buffer;
     }
 
     private Iterator<String> resolveParametersExp(Iterator<String> parametersExp, Map<String, ?> entityContext, Object target)
@@ -177,7 +222,6 @@ public abstract class HateoasObjSerialDeserial implements IObjectSerialDeserial<
 	    
 	    value = PropertyResolver.getValue(subExpression, targetInstance)
 		    .toString();
-	   
 	    
 	    values.add(value);
 	}

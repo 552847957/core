@@ -18,7 +18,6 @@ package org.wicketstuff.rest.resource.urlsegments;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -131,18 +130,5 @@ public class MultiParamSegment extends AbstractURLSegment
 	public List<AbstractURLSegment> getSubSegments()
 	{
 		return subSegments;
-	}
-
-	@Override
-	public StringBuffer populateVariableFromEntity(Iterator<String> variableVal)
-	{
-	    StringBuffer buffer = new StringBuffer();
-	    
-	    for (AbstractURLSegment urlSegment : subSegments)
-	    {
-		buffer.append(urlSegment.populateVariableFromEntity(variableVal));
-	    }
-	    
-	    return buffer;
 	}
 }

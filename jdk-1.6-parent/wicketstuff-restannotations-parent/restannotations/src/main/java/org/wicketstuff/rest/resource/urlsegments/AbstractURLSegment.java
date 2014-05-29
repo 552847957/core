@@ -22,7 +22,6 @@ import static org.apache.wicket.util.parse.metapattern.MetaPattern.RIGHT_CURLY;
 import static org.apache.wicket.util.parse.metapattern.MetaPattern.VARIABLE_NAME;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.wicket.util.parse.metapattern.MetaPattern;
@@ -95,8 +94,6 @@ public abstract class AbstractURLSegment extends StringValue
 	 *         invoked on a FixedURLSegment, while it returns 1 for the other types of segment.
 	 */
 	public abstract int calculateScore(String segment);
-	
-	public abstract StringBuffer populateVariableFromEntity(Iterator<String> variableVal);
 	
 	/**
 	 * Get the segment value without optional matrix parameters. For example given the following

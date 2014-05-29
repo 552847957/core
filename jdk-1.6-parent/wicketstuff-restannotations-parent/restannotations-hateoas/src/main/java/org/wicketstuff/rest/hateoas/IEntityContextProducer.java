@@ -26,5 +26,5 @@ import java.util.Map;
  */
 public interface IEntityContextProducer<T>
 {
-    public Map<String, ?> createContext(T entity);
+    public void createContext(T entity, Map<String, ?> context);
 }
