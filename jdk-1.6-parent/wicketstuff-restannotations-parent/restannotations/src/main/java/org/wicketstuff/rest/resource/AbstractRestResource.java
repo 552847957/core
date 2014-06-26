@@ -16,6 +16,16 @@
  */
 package org.wicketstuff.rest.resource;
 
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.wicket.Application;
 import org.apache.wicket.Session;
 import org.apache.wicket.WicketRuntimeException;
@@ -49,16 +59,6 @@ import org.wicketstuff.rest.utils.wicket.AttributesWrapper;
 import org.wicketstuff.rest.utils.wicket.MethodParameterContext;
 import org.wicketstuff.rest.utils.wicket.bundle.DefaultBundleResolver;
 
-import java.io.Serializable;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * Base class to build a resource that serves REST requests.
  *
@@ -78,6 +78,12 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	 * the number of the segments of their URL and their HTTP method (see annotation MethodMapping)
 	 */
 	private final Map<String, List<MethodMappingInfo>> mappedMethods;
+	
+	/**
+	 * Another HashMap that stores every mapped method of the class. 
+	 * The key of the map is {@link Method}.
+	 */
+	private final Map<Method, MethodMappingInfo> mappedMethodsInfo;	
 
 	/**
 	 * HashMap that stores the validators registered by the resource.
@@ -126,6 +132,7 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 		this.webSerialDeserial = serialDeserial;
 		this.roleCheckingStrategy = roleCheckingStrategy;
 		this.mappedMethods = loadAnnotatedMethods();
+		this.mappedMethodsInfo = loadAnnotatedMethodsInfo(this.mappedMethods);
 		this.bundleResolver = new DefaultBundleResolver(loadBoundleClasses());
 	}
 
@@ -535,6 +542,21 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 
 		return Collections.unmodifiableMap(listMap);
 	}
+	
+	private Map<Method, MethodMappingInfo> loadAnnotatedMethodsInfo(Map<String, List<MethodMappingInfo>> mappedMethods) 
+	{
+		Map<Method, MethodMappingInfo> methodsInfo = new HashMap<Method, MethodMappingInfo>();
+		
+		for (List<MethodMappingInfo> methodInfoList : mappedMethods.values()) 
+		{
+			for (MethodMappingInfo methodMappedInfo : methodInfoList) 
+			{
+				methodsInfo.put(methodMappedInfo.getMethod(), methodMappedInfo);
+			}
+		}
+		
+		return Collections.unmodifiableMap(methodsInfo);
+	}
 
 	/***
 	 * Invokes one of the resource methods annotated with {@link MethodMapping}.
@@ -752,5 +774,10 @@ public abstract class AbstractRestResource<T extends IWebSerialDeserial> impleme
 	protected IValidator getValidator(String key)
 	{
 		return declaredValidators.get(key);
+	}
+	
+	public MethodMappingInfo getMethodInfo(Method method) 
+	{
+		return mappedMethodsInfo.get(method);
 	}
 }

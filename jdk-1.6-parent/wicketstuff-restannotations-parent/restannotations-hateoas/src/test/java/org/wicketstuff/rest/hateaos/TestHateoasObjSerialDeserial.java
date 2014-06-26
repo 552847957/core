@@ -25,12 +25,10 @@ import org.junit.Test;
 import org.wicketstuff.rest.domain.PersonPojo;
 import org.wicketstuff.rest.hateaos.contenthandling.HateoasObjSerialDeserial;
 import org.wicketstuff.rest.hateoas.HypermediaLink;
-import org.wicketstuff.rest.resource.PersonsRestResource;
 
 public class TestHateoasObjSerialDeserial extends Assert
 {
-    private HateoasObjSerialDeserial objSerialDeserial = new HateoasObjSerialDeserial(
-	    PersonsRestResource.class)
+    private HateoasObjSerialDeserial objSerialDeserial = new HateoasObjSerialDeserial()
     {
 
 	@Override
