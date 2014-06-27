@@ -18,11 +18,9 @@ package org.wicketstuff.rest.hateaos;
 
 import org.apache.wicket.markup.html.WebPage;
 import org.apache.wicket.protocol.http.WebApplication;
-import org.apache.wicket.request.resource.IResource;
-import org.apache.wicket.request.resource.ResourceReference;
-import org.wicketstuff.rest.contenthandling.mimetypes.RestMimeTypes;
+import org.wicketstuff.rest.contenthandling.RestMimeTypes;
 import org.wicketstuff.rest.contenthandling.serialdeserial.TextualWebSerialDeserial;
-import org.wicketstuff.rest.hateaos.contenthandling.HateoasObjSerialDeserial;
+import org.wicketstuff.rest.hateoas.resources.HateoasResourceReference;
 import org.wicketstuff.rest.resource.PersonsRestResource;
 
 /**
@@ -33,8 +31,6 @@ import org.wicketstuff.rest.resource.PersonsRestResource;
  */
 public class WicketApplication extends WebApplication
 {
-    private final HateoasObjSerialDeserial objSerialDeserial;
-
     /**
      * @see org.apache.wicket.Application#getHomePage()
      */
@@ -44,32 +40,17 @@ public class WicketApplication extends WebApplication
 	return WebPage.class;
     }
 
-    public WicketApplication(HateoasObjSerialDeserial objSerialDeserial)
+    public WicketApplication()
     {
-
-	this.objSerialDeserial = objSerialDeserial;
     }
 
     @Override
     public void init()
     {
 	super.init();
-
-	mountResource("/personsmanager", new ResourceReference("restReference")
-	{
-
-	    TextualWebSerialDeserial webSerialDeserial = new TextualWebSerialDeserial(
-		    "UTF-8", RestMimeTypes.APPLICATION_JSON, objSerialDeserial);
-
-	    PersonsRestResource resource = new PersonsRestResource(
-		    webSerialDeserial);
-
-	    @Override
-	    public IResource getResource()
-	    {
-		return resource;
-	    }
-
-	});
+	PersonsRestResource resource = new PersonsRestResource(new TextualWebSerialDeserial("", RestMimeTypes.APPLICATION_JSON, null));
+	HateoasResourceReference reference = new HateoasResourceReference(resource);
+	
+	mountResource("/personsmanager", reference);
     }
 }

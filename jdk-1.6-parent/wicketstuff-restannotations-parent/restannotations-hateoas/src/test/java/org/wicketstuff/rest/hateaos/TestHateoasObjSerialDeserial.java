@@ -16,51 +16,21 @@
  */
 package org.wicketstuff.rest.hateaos;
 
-import java.util.List;
-
-import org.apache.wicket.WicketRuntimeException;
-import org.apache.wicket.ajax.json.JSONObject;
+import org.apache.wicket.util.tester.WicketTester;
 import org.junit.Assert;
 import org.junit.Test;
-import org.wicketstuff.rest.domain.PersonPojo;
-import org.wicketstuff.rest.hateaos.contenthandling.HateoasObjSerialDeserial;
-import org.wicketstuff.rest.hateoas.HypermediaLink;
+import org.wicketstuff.rest.hateoas.resources.ResourceUrlBuilder;
+import org.wicketstuff.rest.resource.PersonsRestResource;
 
 public class TestHateoasObjSerialDeserial extends Assert
 {
-    private HateoasObjSerialDeserial objSerialDeserial = new HateoasObjSerialDeserial()
-    {
 
-	@Override
-	public <E> E deserializeObject(String source, Class<E> targetClass,
-		String mimeType)
-	{
-	    return null;
-	}
-
-	@Override
-	protected String serializeObject(Object target,
-		List<HypermediaLink> links, String mimeType)
-	{
-	    try
-	    {
-		return new JSONObject(target).put("links", links).toString();
-	    } catch (Exception e)
-	    {
-		throw new WicketRuntimeException(
-			"An error occurred during hateaos links serialization",
-			e);
-	    }
-	}
-
-    };
-
+	WicketTester tester = new WicketTester(new WicketApplication()); 
+	
     @Test
     public void test()
     {
-	PersonPojo person = new PersonPojo(1, "Freddie Mercury",
-		"fmercury@queen.com", "Eeehooo!");
-	System.out.println(objSerialDeserial.serializeObject(person, ""));
+    	ResourceUrlBuilder.forResourceClass(PersonsRestResource.class).deletePerson(12);
     }
 
 }

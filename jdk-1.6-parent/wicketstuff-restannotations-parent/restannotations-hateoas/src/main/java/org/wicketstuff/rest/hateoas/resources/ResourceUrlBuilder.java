@@ -16,16 +16,17 @@
  */
 package org.wicketstuff.rest.hateoas.resources;
 
+import static org.mockito.Mockito.mock;
+
 import java.lang.reflect.Method;
 import java.util.List;
 
-import net.sf.cglib.proxy.Enhancer;
-import net.sf.cglib.proxy.MethodInterceptor;
-import net.sf.cglib.proxy.MethodProxy;
-
 import org.apache.wicket.Application;
+import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.resource.ResourceReference;
 import org.apache.wicket.request.resource.ResourceReference.Key;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.wicketstuff.rest.resource.AbstractRestResource;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
@@ -34,23 +35,25 @@ import org.wicketstuff.rest.utils.reflection.MethodParameter;
 public class ResourceUrlBuilder 
 {
 	
-	@SuppressWarnings("unchecked")
 	public static <T extends AbstractRestResource<?>> T forResourceClass(Class<T> resourceClass) 
 	{
-		T proxyResource = (T) Enhancer.create(resourceClass, new MappedMethodInterceptor());
+		T proxyResource = mock(resourceClass, new MappedMethodInterceptor());
 		return proxyResource;
 	}	
 }
 
 
-class MappedMethodInterceptor implements MethodInterceptor
+class MappedMethodInterceptor implements Answer<String>
 {
 	
 	@Override
-	public Object intercept(Object obj, Method method, Object[] args,
-			MethodProxy proxy) throws Throwable 
+	public String answer(InvocationOnMock invocation) throws Throwable 
 	{
-		Key key = null;
+		Object obj = invocation.getMock();
+		Method method = invocation.getMethod();
+		Object[] args = invocation.getArguments();
+		
+		Key key = new Key(Application.class.getName(), obj.getClass().getSuperclass().getName(), null, null, null);
 		
 		ResourceReference ref = Application.get()
 				.getResourceReferenceRegistry()
@@ -69,16 +72,19 @@ class MappedMethodInterceptor implements MethodInterceptor
 		{
 			return "";
 		}
-
+		
+		System.out.println(RequestCycle.get().urlFor(hateoasReference, null));
+		
 		return buildMethodUrl(methodInfo, args);
 	}
 
-	private Object buildMethodUrl(MethodMappingInfo methodInfo, Object[] args) 
+	private String buildMethodUrl(MethodMappingInfo methodInfo, Object[] args) 
 	{
 		List<AbstractURLSegment> segments = methodInfo.getSegments();
 		List<MethodParameter> parameters = methodInfo.getMethodParameters();
 		
 		
-		return null;
+		return "";
 	}
+
 }
