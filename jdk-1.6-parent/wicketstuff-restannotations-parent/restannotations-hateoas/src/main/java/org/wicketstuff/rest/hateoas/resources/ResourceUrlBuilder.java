@@ -19,18 +19,22 @@ package org.wicketstuff.rest.hateoas.resources;
 import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.resource.ResourceReference;
 import org.apache.wicket.request.resource.ResourceReference.Key;
+import org.apache.wicket.util.string.Strings;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.wicketstuff.rest.resource.AbstractRestResource;
 import org.wicketstuff.rest.resource.MethodMappingInfo;
 import org.wicketstuff.rest.resource.urlsegments.AbstractURLSegment;
-import org.wicketstuff.rest.utils.reflection.MethodParameter;
+import org.wicketstuff.rest.resource.urlsegments.ParamSegment;
 
 public class ResourceUrlBuilder 
 {
@@ -51,9 +55,11 @@ class MappedMethodInterceptor implements Answer<String>
 	{
 		Object obj = invocation.getMock();
 		Method method = invocation.getMethod();
-		Object[] args = invocation.getArguments();
+		Object[] args = invocation.getArguments();	
+		String appName = Application.class.getName();
+		String mockedClassName = obj.getClass().getSuperclass().getName();
 		
-		Key key = new Key(Application.class.getName(), obj.getClass().getSuperclass().getName(), null, null, null);
+		Key key = new Key(appName, mockedClassName, null, null, null);
 		
 		ResourceReference ref = Application.get()
 				.getResourceReferenceRegistry()
@@ -73,18 +79,30 @@ class MappedMethodInterceptor implements Answer<String>
 			return "";
 		}
 		
-		System.out.println(RequestCycle.get().urlFor(hateoasReference, null));
+		String resultString = RequestCycle.get().mapUrlFor(hateoasReference, null)
+			+ "/" + buildMethodUrl(methodInfo, args);
+		System.out.println(resultString);
 		
-		return buildMethodUrl(methodInfo, args);
+		return resultString;
 	}
 
 	private String buildMethodUrl(MethodMappingInfo methodInfo, Object[] args) 
 	{
 		List<AbstractURLSegment> segments = methodInfo.getSegments();
-		List<MethodParameter> parameters = methodInfo.getMethodParameters();
+		//List<MethodParameter> parameters = methodInfo.getMethodParameters();
 		
+		List<String> actualSegments = new ArrayList<String>();
+		Iterator<Object> argsIterator = Arrays.asList(args).iterator();
 		
-		return "";
+		for (AbstractURLSegment abstractURLSegment : segments)
+		{
+			if(abstractURLSegment instanceof ParamSegment)
+			{
+				actualSegments.add(argsIterator.next().toString());
+			}
+		}
+		
+		return Strings.join("/", actualSegments);
 	}
 
 }
