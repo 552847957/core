@@ -82,8 +82,8 @@ class MappedMethodInterceptor implements Answer<String>
 		String resultString = RequestCycle.get().mapUrlFor(hateoasReference, null)
 			+ "/" + buildMethodUrl(methodInfo, args);
 		System.out.println(resultString);
-		
-		return resultString;
+
+		return null;
 	}
 
 	private String buildMethodUrl(MethodMappingInfo methodInfo, Object[] args) 

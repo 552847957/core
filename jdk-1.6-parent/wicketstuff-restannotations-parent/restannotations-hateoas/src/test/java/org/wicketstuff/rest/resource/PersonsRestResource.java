@@ -56,9 +56,9 @@ public class PersonsRestResource extends
     @HypermediaEntityLink(entityClass = PersonPojo.class, linkRel = "two", linkType = "get", 
 	    linkParams = { @HypermediaParameter(parameterIndex = 0, propertyExpression = "entity.id") })
     @MethodMapping("/persons/{id}")
-    public List<PersonPojo> getPerson()
+    public int getPerson(int id)
     {
-	return persons;
+	return id;
     }
 
     @HypermediaEntityLink(entityClass = PersonPojo.class, linkRel = "three", linkType = "get", 

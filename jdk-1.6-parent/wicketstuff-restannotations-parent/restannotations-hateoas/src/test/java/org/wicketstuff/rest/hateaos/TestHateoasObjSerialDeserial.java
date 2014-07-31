@@ -30,7 +30,11 @@ public class TestHateoasObjSerialDeserial extends Assert
     @Test
     public void test()
     {
-    	ResourceUrlBuilder.forResourceClass(PersonsRestResource.class).deletePerson(12);
+    	PersonsRestResource mockResource = ResourceUrlBuilder.forResourceClass(PersonsRestResource.class);
+	
+    	mockResource.deletePerson(12);
+    	mockResource.getAllPersons();
+    	mockResource.getPerson(8);
     }
 
 }
