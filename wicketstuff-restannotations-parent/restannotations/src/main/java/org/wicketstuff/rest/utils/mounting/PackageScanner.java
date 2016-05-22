@@ -40,58 +40,71 @@ public class PackageScanner
 {
 	private static final Logger log = LoggerFactory.getLogger(PackageScanner.class);
 
-	public static void scanPackage(String... packageNames)
+	public static List<IResource> scanPackage(String... packageNames)
 	{
 		Args.notNull(packageNames, "packageNames");
 
-		scanPackage(WebApplication.get(), packageNames);
+		return scanPackage(WebApplication.get(), packageNames);
 	}
 
-	public static void scanPackage(WebApplication application, String... packageNames)
+	public static List<IResource> scanPackage(WebApplication application, String... packageNames)
 	{
 		Args.notNull(application, "application");
 		Args.notNull(packageNames, "packageNames");
-
+		
+		List<IResource> mountedResources = new ArrayList<>();
+		
 		for (String packageName : packageNames)
 		{
-			scanPackage(application, packageName);
+			mountedResources.addAll(scanPackage(application, packageName));
 		}
+		
+		return mountedResources;
 	}
 
-	public static void scanPackage(WebApplication application, String packageName)
+	public static List<IResource> scanPackage(WebApplication application, String packageName)
 	{
 		Args.notNull(application, "application");
 		Args.notNull(packageName, "packageName");
-
+		
+		List<IResource> mountedResources = new ArrayList<>();
+		
 		try
 		{
 			Class<?>[] packageClasses = getClasses(packageName);
 
 			for (Class<?> clazz : packageClasses)
 			{
-				mountAnnotatedResource(application, clazz);
+				IResource annotatedResource = mountAnnotatedResource(application, clazz);
+				
+				if (annotatedResource != null)
+				{
+					mountedResources.add(annotatedResource);
+				}
 			}
 
 		} catch (Exception exception)
 		{
 			throw new WicketRuntimeException(exception);
 		}
+		
+		return mountedResources;
 	}
 
-	private static void mountAnnotatedResource(WebApplication application, Class<?> clazz)
+	private static IResource mountAnnotatedResource(WebApplication application, Class<?> clazz)
 			throws InstantiationException, IllegalAccessException
 	{
 		ResourcePath mountAnnotation = clazz.getAnnotation(ResourcePath.class);
 
 		if (mountAnnotation == null || !IResource.class.isAssignableFrom(clazz))
 		{
-			return;
+			return null;
 		}
 
 		String path = mountAnnotation.value();
 		final IResource resourceInstance = (IResource) clazz.newInstance();
 
-		application.mountResource(path, new ResourceReference(clazz.getSimpleName())
+		ResourceReference restReference = new ResourceReference(clazz.getSimpleName())
 		{
 			/**
         	* 
@@ -103,10 +116,13 @@ public class PackageScanner
 			{
 				return resourceInstance;
 			}
-		});
+		};
+		application.mountResource(path, restReference);
 
 		log.info("Resource '" + clazz.getSimpleName() + "' has been mounted to path '" + path
 				+ "'");
+		
+		return resourceInstance;
 	}
 
 	/**
