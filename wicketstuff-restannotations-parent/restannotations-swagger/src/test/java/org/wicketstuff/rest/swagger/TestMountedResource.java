@@ -1,5 +1,6 @@
 package org.wicketstuff.rest.swagger;
 
+import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.annotations.ResourcePath;
 import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.contenthandling.json.webserialdeserial.JsonWebSerialDeserial;
@@ -42,6 +43,11 @@ public class TestMountedResource extends AbstractRestResource<TestSerialDeserial
 			});
 		}
 		
+	}
+	@MethodMapping(value = "/person/{id}")
+	public String getString()
+	{
+		return "ciao";
 	}
 
 }
