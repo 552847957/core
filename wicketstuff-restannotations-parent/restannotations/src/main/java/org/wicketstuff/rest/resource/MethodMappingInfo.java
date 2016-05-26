@@ -59,7 +59,7 @@ public class MethodMappingInfo implements IMimeTypeResolver
 	private final List<MethodParameter<?>> methodParameters;
 	/** Method parameters list */
 	private final Map<Class<? extends Annotation>, List<MethodParameter<?>>> annotatedMethodParameters;
-
+	/** The mount path for the current method */
 	private final String mountPath;
 	
 	/**

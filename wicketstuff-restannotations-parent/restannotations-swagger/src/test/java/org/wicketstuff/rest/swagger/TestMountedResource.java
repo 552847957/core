@@ -2,10 +2,12 @@ package org.wicketstuff.rest.swagger;
 
 import org.wicketstuff.rest.annotations.MethodMapping;
 import org.wicketstuff.rest.annotations.ResourcePath;
+import org.wicketstuff.rest.annotations.parameters.RequestBody;
 import org.wicketstuff.rest.contenthandling.IObjectSerialDeserial;
 import org.wicketstuff.rest.contenthandling.json.webserialdeserial.JsonWebSerialDeserial;
 import org.wicketstuff.rest.resource.AbstractRestResource;
 import org.wicketstuff.rest.swagger.TestMountedResource.TestSerialDeserial;
+import org.wicketstuff.rest.utils.http.HttpMethod;
 
 @ResourcePath("/api/test")
 public class TestMountedResource extends AbstractRestResource<TestSerialDeserial>
@@ -45,9 +47,14 @@ public class TestMountedResource extends AbstractRestResource<TestSerialDeserial
 		
 	}
 	@MethodMapping(value = "/person/{id}")
-	public String getString()
+	public Person getString(int id)
 	{
-		return "ciao";
+		return  new Person();
+	}
+	
+	@MethodMapping(value = "/person", httpMethod = HttpMethod.POST)
+	public void postString(@RequestBody Person person)
+	{
 	}
 
 }

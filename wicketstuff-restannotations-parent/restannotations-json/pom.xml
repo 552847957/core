@@ -40,7 +40,12 @@
 			<email>an.delbene@gmail.com</email>
 		</developer>
 	</developers>
-
+    
+    <properties>
+        <jackson.version>2.7.4</jackson.version>
+        <gson.version>2.6.2</gson.version>
+    </properties>
+    
 	<dependencies>
 		<dependency>
 			<groupId>org.wicketstuff</groupId>
@@ -51,18 +56,18 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			<version>2.7.4</version>
+			<version>${jackson.version}</version>
 		</dependency>
 		<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.7.4</version>
+            <version>${jackson.version}</version>
         </dependency>
         
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
-			<version>2.6.2</version>
+			<version>${gson.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
