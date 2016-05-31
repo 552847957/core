@@ -115,6 +115,8 @@ public class SwaggerUtils
 		
 		operation.setConsumes(Arrays.asList(methodMappingInfo.getInputFormat()));
 		operation.setProduces(Arrays.asList(methodMappingInfo.getOutputFormat()));
+		
+		operation.setOperationId(methodMappingInfo.getMethod().getName());
 	}
 
 	public static Parameter annotationToSwaggerParam(final Annotation annotationParam, 
