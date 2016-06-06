@@ -98,6 +98,39 @@ public class ReflectionUtils
 	}
 
 	/**
+	 * Return a given annotation used with a method parameter.
+	 *
+	 * @param i
+	 *            method parameter index.
+	 * @param method
+	 *            the method the parameter belongs to.
+	 * @param
+	 * 			  the annotation type we are searching for           
+	 *
+	 * @return the annotation if any is found, null otherwise.
+	 * @see AnnotatedParam
+	 */
+	public static Annotation getAnnotationParam(int i, Method method, Class<? extends Annotation> annotationtClass)
+	{
+		Annotation[][] parametersAnnotations = method.getParameterAnnotations();
+		
+		if (parametersAnnotations.length == 0)
+			return null;
+		
+		Annotation[] parameterAnnotations = parametersAnnotations[i];
+		
+		for (int j = 0; j < parameterAnnotations.length; j++)
+		{
+			Annotation paramAnnotation = parameterAnnotations[j];
+			
+			if (annotationtClass.isInstance(paramAnnotation))
+				return paramAnnotation;
+		}
+		
+		return null;
+	}
+
+	/**
 	 * Utility method to find if an annotation type is present in an array of annotations.
 	 *
 	 * @param parameterAnnotations

@@ -9,6 +9,8 @@ import org.wicketstuff.rest.resource.AbstractRestResource;
 import org.wicketstuff.rest.swagger.TestMountedResource.TestSerialDeserial;
 import org.wicketstuff.rest.utils.http.HttpMethod;
 
+import io.swagger.annotations.ApiParam;
+
 @ResourcePath("/api/test")
 public class TestMountedResource extends AbstractRestResource<TestSerialDeserial>
 {
@@ -46,8 +48,9 @@ public class TestMountedResource extends AbstractRestResource<TestSerialDeserial
 		}
 		
 	}
+	
 	@MethodMapping(value = "/person/{id}")
-	public Person getString(int id)
+	public Person getString(@ApiParam(value = "Person id") int id)
 	{
 		return  new Person();
 	}

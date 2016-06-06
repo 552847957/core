@@ -37,10 +37,14 @@ import org.wicketstuff.rest.utils.reflection.MethodParameter;
 import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
 
 import io.swagger.annotations.ApiParam;
+import io.swagger.converter.ModelConverters;
+import io.swagger.models.Model;
 import io.swagger.models.Operation;
 import io.swagger.models.Path;
+import io.swagger.models.RefModel;
 import io.swagger.models.Swagger;
 import io.swagger.models.Tag;
+import io.swagger.models.parameters.AbstractSerializableParameter;
 import io.swagger.models.parameters.BodyParameter;
 import io.swagger.models.parameters.CookieParameter;
 import io.swagger.models.parameters.FormParameter;
@@ -48,6 +52,8 @@ import io.swagger.models.parameters.HeaderParameter;
 import io.swagger.models.parameters.Parameter;
 import io.swagger.models.parameters.PathParameter;
 import io.swagger.models.parameters.QueryParameter;
+import io.swagger.models.properties.Property;
+import io.swagger.util.PrimitiveType;
 
 public class SwaggerUtils
 {
@@ -68,7 +74,11 @@ public class SwaggerUtils
 			
 			operation.tag(resourceClass.getSimpleName());
 			
-			SwaggerUtils.loadOperationParameters(operation, methodMappingInfo);
+			SwaggerUtils.loadOperationParameters(swaggerData, operation, methodMappingInfo);
+			
+			operation.setConsumes(Arrays.asList(methodMappingInfo.getInputFormat()));
+			operation.setProduces(Arrays.asList(methodMappingInfo.getOutputFormat()));
+			operation.setOperationId(methodMappingInfo.getMethod().getName());
 			
 			path.set(httpMethod.name().toLowerCase(), operation);
 			
@@ -78,7 +88,7 @@ public class SwaggerUtils
 		swaggerData.addTag(new Tag().name(resourceClass.getSimpleName()));
 	}
 
-	public static void loadOperationParameters(final Operation operation, 
+	public static void loadOperationParameters(final Swagger swaggerData, final Operation operation, 
 		final MethodMappingInfo methodMappingInfo)
 	{
 		SegmentIterator segmentIterator = new SegmentIterator(
@@ -89,44 +99,54 @@ public class SwaggerUtils
 		for (MethodParameter<?> methodParameter : methodParameters)
 		{
 			Annotation annotationParam = methodParameter.getAnnotationParam();
+			Annotation swaggerAnnotationParam = ReflectionUtils.getAnnotationParam(
+				methodParameter.getParamIndex(), methodMappingInfo.getMethod(), ApiParam.class);
 			
-			if (annotationParam == null)
+			String parameterName = "";
+			String parameterDescr = "";
+			
+			if (swaggerAnnotationParam != null)
 			{
-				annotationParam = methodParameter.getParameterClass()
-					.getAnnotation(ApiParam.class);
+				parameterName = ReflectionUtils.getAnnotationField(swaggerAnnotationParam, "name", "");
+				parameterDescr = ReflectionUtils.getAnnotationField(swaggerAnnotationParam, "value", "");
+			}
+
+			if (annotationParam != null && parameterName.isEmpty())
+			{
+				parameterName = ReflectionUtils.getAnnotationField(annotationParam, "value", "");
 			}
 			
-			String parameterName = annotationParam != null ? 
-				ReflectionUtils.getAnnotationField(annotationParam, "value", "") :
-				segmentIterator.nextParamName();
+			if (parameterName.isEmpty())
+			{
+				parameterName = segmentIterator.nextParamName();
+			}
 			
 			if (annotationParam instanceof RequestBody)
 			{
 				parameterName = "body";
 			}	
 			
-			Parameter parameter = annotationToSwaggerParam(annotationParam, 
-				methodMappingInfo);
+			Parameter parameter = annotationToSwaggerParam(swaggerData, annotationParam, 
+				methodParameter);
 			
 			parameter.setName(parameterName);
+			parameter.setDescription(parameterDescr);
 			
 			operation.addParameter(parameter);
 		}
-		
-		operation.setConsumes(Arrays.asList(methodMappingInfo.getInputFormat()));
-		operation.setProduces(Arrays.asList(methodMappingInfo.getOutputFormat()));
-		
-		operation.setOperationId(methodMappingInfo.getMethod().getName());
 	}
 
-	public static Parameter annotationToSwaggerParam(final Annotation annotationParam, 
-		final MethodMappingInfo methodMappingInfo)
+	public static Parameter annotationToSwaggerParam(final Swagger swaggerData, final Annotation annotationParam, 
+		final MethodParameter<?> methodParameter)
 	{
-		Parameter parameter = null;
+		Parameter parameter = new PathParameter();
+		MethodMappingInfo ownerMethod = methodParameter.getOwnerMethod();
+		Class<?> parameterClass = methodParameter.getParameterClass();
 		
 		if (annotationParam instanceof RequestBody)
 		{
-			parameter = new BodyParameter();
+			parameter = new BodyParameter().
+				schema(new RefModel().asDefault(parameterClass.getSimpleName()));
 		} 
 		else if (annotationParam instanceof HeaderParam) 
 		{
@@ -134,7 +154,7 @@ public class SwaggerUtils
 		}
 		else if (annotationParam instanceof RequestParam) 
 		{
-			HttpMethod httpMethod = methodMappingInfo.getHttpMethod();
+			HttpMethod httpMethod = ownerMethod.getHttpMethod();
 			boolean isPost = httpMethod.equals(HttpMethod.POST);
 			
 			parameter = isPost ? new FormParameter() : new QueryParameter();
@@ -144,7 +164,26 @@ public class SwaggerUtils
 			parameter = new CookieParameter();
 		}
 		
-		return parameter == null ? new PathParameter() : parameter;
+		if (parameter instanceof AbstractSerializableParameter)
+		{
+			AbstractSerializableParameter<?> serializableParameter = 
+				(AbstractSerializableParameter<?>)parameter;
+			
+			Property typedProperty = PrimitiveType.createProperty(parameterClass);
+			
+			serializableParameter.setType(typedProperty.getType());
+			serializableParameter.setFormat(typedProperty.getFormat());			
+		}
+		
+		if (!parameterClass.isPrimitive())
+		{
+			Model model = ModelConverters.getInstance().read(parameterClass)
+				.get(parameterClass.getSimpleName());
+			
+			swaggerData.model(parameterClass.getSimpleName(), model);
+		}
+		
+		return parameter;
 	}
 
 }

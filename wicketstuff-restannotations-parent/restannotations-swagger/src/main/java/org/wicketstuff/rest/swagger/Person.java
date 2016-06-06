@@ -1,4 +1,7 @@
 package org.wicketstuff.rest.swagger;
+
+import org.joda.time.LocalDate;
+
 /**
  *  Licensed to the Apache Software Foundation (ASF) under one or more
  *  contributor license agreements.  See the NOTICE file distributed with
@@ -22,6 +25,9 @@ public class Person{
 	private String name;
 	private String surname;
 	private String email;
+	private LocalDate bornDate;
+	
+	private int age;
 	
 	public Person(){}
 	
@@ -51,5 +57,25 @@ public class Person{
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+
+	public LocalDate getBornDate()
+	{
+		return bornDate;
+	}
+
+	public void setBornDate(LocalDate bornDate)
+	{
+		this.bornDate = bornDate;
+	}
+
+	public int getAge()
+	{
+		return age;
+	}
+
+	public void setAge(int age)
+	{
+		this.age = age;
 	}
 }
