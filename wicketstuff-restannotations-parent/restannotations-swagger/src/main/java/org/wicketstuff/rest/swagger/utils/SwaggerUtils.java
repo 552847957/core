@@ -37,8 +37,6 @@ import org.wicketstuff.rest.utils.reflection.MethodParameter;
 import org.wicketstuff.rest.utils.reflection.ReflectionUtils;
 
 import io.swagger.annotations.ApiParam;
-import io.swagger.converter.ModelConverters;
-import io.swagger.models.Model;
 import io.swagger.models.Operation;
 import io.swagger.models.Path;
 import io.swagger.models.RefModel;
@@ -53,6 +51,8 @@ import io.swagger.models.parameters.Parameter;
 import io.swagger.models.parameters.PathParameter;
 import io.swagger.models.parameters.QueryParameter;
 import io.swagger.models.properties.Property;
+import io.swagger.servlet.ReaderContext;
+import io.swagger.servlet.extensions.ServletReaderExtension;
 import io.swagger.util.PrimitiveType;
 
 public class SwaggerUtils
@@ -61,10 +61,11 @@ public class SwaggerUtils
 	public static void addTagAndPathInformations(final Swagger swaggerData, 
 		final AbstractRestResource<?> resource)
 	{
-		Class<? extends IResource> resourceClass = resource.getClass();
-		ResourcePath mountAnnotation = resourceClass.getAnnotation(ResourcePath.class);
-		Map<Method, MethodMappingInfo> mappedMethodsInfos = resource.getMappedMethodsInfo();
-		String basePath = mountAnnotation.value();
+		final Class<? extends IResource> resourceClass = resource.getClass();
+		final ReaderContext readerContext = new ReaderContext(swaggerData, resourceClass, null, null, false, null, null, null, null); 
+		final ResourcePath mountAnnotation = resourceClass.getAnnotation(ResourcePath.class);
+		final Map<Method, MethodMappingInfo> mappedMethodsInfos = resource.getMappedMethodsInfo();
+		final String basePath = mountAnnotation.value();
 		
 		for (MethodMappingInfo methodMappingInfo : mappedMethodsInfos.values())
 		{
@@ -74,11 +75,13 @@ public class SwaggerUtils
 			
 			operation.tag(resourceClass.getSimpleName());
 			
-			SwaggerUtils.loadOperationParameters(swaggerData, operation, methodMappingInfo);
+			loadOperationParameters(swaggerData, operation, methodMappingInfo);
 			
 			operation.setConsumes(Arrays.asList(methodMappingInfo.getInputFormat()));
 			operation.setProduces(Arrays.asList(methodMappingInfo.getOutputFormat()));
 			operation.setOperationId(methodMappingInfo.getMethod().getName());
+			
+			loadOperationOptsFromAnnotation(readerContext, operation, methodMappingInfo);
 			
 			path.set(httpMethod.name().toLowerCase(), operation);
 			
@@ -86,6 +89,18 @@ public class SwaggerUtils
 		}
 		
 		swaggerData.addTag(new Tag().name(resourceClass.getSimpleName()));
+	}
+
+	public static void loadOperationOptsFromAnnotation(final ReaderContext readerContext, final Operation operation,
+		final MethodMappingInfo methodMappingInfo)
+	{
+		final Method method = methodMappingInfo.getMethod();
+		final ServletReaderExtension readerExtension = new ServletReaderExtension();
+		
+		readerExtension.applyDescription(operation, method);
+		readerExtension.applySummary(operation, method);
+		readerExtension.applyResponses(readerContext, operation, method);
+		readerExtension.applySecurityRequirements(readerContext, operation, method);
 	}
 
 	public static void loadOperationParameters(final Swagger swaggerData, final Operation operation, 
@@ -173,14 +188,6 @@ public class SwaggerUtils
 			
 			serializableParameter.setType(typedProperty.getType());
 			serializableParameter.setFormat(typedProperty.getFormat());			
-		}
-		
-		if (!parameterClass.isPrimitive())
-		{
-			Model model = ModelConverters.getInstance().read(parameterClass)
-				.get(parameterClass.getSimpleName());
-			
-			swaggerData.model(parameterClass.getSimpleName(), model);
 		}
 		
 		return parameter;
