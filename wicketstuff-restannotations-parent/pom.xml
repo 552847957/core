@@ -29,6 +29,7 @@
 		<module>restannotations</module>
 		<module>restannotations-json</module>
 		<module>restannotations-examples</module>
+		<module>restannotations-swagger</module>
 	</modules>
 	<inceptionYear>2013</inceptionYear>
 	<licenses>

@@ -57,6 +57,8 @@ public class MethodMappingInfo implements IMimeTypeResolver
 	private final String outputFormat;
 	/** Method parameters list */
 	private final List<MethodParameter<?>> methodParameters;
+	/** The mount path for the current method */
+	private final String mountPath;
 	/** Method parameters list */
 	private final Map<Class<? extends Annotation>, List<MethodParameter<?>>> annotatedMethodParameters;
 	
@@ -72,7 +74,8 @@ public class MethodMappingInfo implements IMimeTypeResolver
 	{
 		this.httpMethod = methodMapped.httpMethod();
 		this.method = method;
-		this.segments = Collections.unmodifiableList(loadSegments(methodMapped.value()));
+		this.mountPath = methodMapped.value();
+		this.segments = Collections.unmodifiableList(loadSegments(mountPath));
 		this.roles = loadRoles();
 
 		this.inputFormat = methodMapped.consumes();
@@ -246,5 +249,9 @@ public class MethodMappingInfo implements IMimeTypeResolver
 	public Map<Class<? extends Annotation>, List<MethodParameter<?>>> getAnnotatedMethodParameters()
 	{
 		return annotatedMethodParameters;
+	}
+
+	public String getMountPath() {
+		return mountPath;
 	}
 }
